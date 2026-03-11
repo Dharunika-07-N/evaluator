@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Online Exam System</title>
+    <link rel="stylesheet" href="css/profile.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-content">
+            <h2 class="nav-title">Online Exam System</h2>
+            <div class="nav-right">
+                <span id="userRole" class="role-badge"></span>
+                <button class="btn-logout" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="profile-container">
+        <div class="profile-card">
+            <div class="card-header">
+                <h1>Personal Information</h1>
+                <p class="subtitle">View and edit your profile details</p>
+            </div>
+            
+            <div id="message" class="message"></div>
+            
+            <form id="profileForm">
+                <div class="form-group">
+                    <label for="fullname">Full Name</label>
+                    <input type="text" id="fullname" name="fullname" placeholder="Enter your full name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" placeholder="Enter your email" readonly>
+                    <small>Email cannot be changed</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="role">Role</label>
+                    <input type="text" id="role" name="role" readonly>
+                </div>
+                
+                <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <input type="tel" id="phone" name="phone" placeholder="Enter your phone number">
+                </div>
+                
+                <div class="form-group">
+                    <label for="address">Address</label>
+                    <textarea id="address" name="address" placeholder="Enter your address" rows="3"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-submit">Save Changes</button>
+                    <button type="button" class="btn-cancel" onclick="resetForm()">Cancel</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="profile-card">
+            <div class="card-header">
+                <h2>Change Password</h2>
+                <p class="subtitle">Update your password</p>
+            </div>
+            
+            <div id="passwordMessage" class="message"></div>
+            
+            <form id="passwordForm">
+                <div class="form-group">
+                    <label for="currentPassword">Current Password</label>
+                    <input type="password" id="currentPassword" name="currentPassword" placeholder="Enter current password" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="newPassword">New Password</label>
+                    <input type="password" id="newPassword" name="newPassword" placeholder="Enter new password" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmNewPassword">Confirm New Password</label>
+                    <input type="password" id="confirmNewPassword" name="confirmNewPassword" placeholder="Confirm new password" required>
+                </div>
+                
+                <button type="submit" class="btn-submit">Update Password</button>
+            </form>
+        </div>
+    </div>
+    
+    <script src="js/profile.js"></script>
+</body>
+</html>
