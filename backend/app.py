@@ -105,6 +105,8 @@ def init_db():
             total_questions INTEGER,
             correct_answers INTEGER,
             status TEXT DEFAULT 'in_progress',
+            tab_switches INTEGER DEFAULT 0,
+            violation_reason TEXT,
             FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
