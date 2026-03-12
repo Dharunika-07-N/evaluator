@@ -1,11 +1,11 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from pymongo import MongoClient
-from bson.objectid import ObjectId
+import sqlite3
 import bcrypt
 import jwt
 from datetime import datetime, timedelta
 from functools import wraps
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -13,10 +13,41 @@ CORS(app)
 # Secret key for JWT
 SECRET_KEY = 'your-secret-key-change-in-production'
 
-# MongoDB connection
-client = MongoClient('mongodb://localhost:27017/')
-db = client['online_exam_system']
-users_collection = db['users']
+# SQLite database setup
+DATABASE = os.path.join(os.path.dirname(__file__), 'exam_system.db')
+
+def get_db():
+    """Create a database connection"""
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row  # Return rows as dictionaries
+    return conn
+
+def init_db():
+    """Initialize the database with tables"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Create users table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fullname TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password BLOB NOT NULL,
+            role TEXT NOT NULL,
+            phone TEXT,
+            address TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active INTEGER DEFAULT 1
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+    print("Database initialized successfully")
+
+# Initialize database on startup
+init_db()
 
 # JWT Authentication decorator
 def token_required(f):
@@ -33,10 +64,18 @@ def token_required(f):
                 token = token[7:]
             
             data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-            current_user = users_collection.find_one({'_id': ObjectId(data['user_id'])})
             
-            if not current_user:
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM users WHERE id = ?', (data['user_id'],))
+            user_row = cursor.fetchone()
+            conn.close()
+            
+            if not user_row:
                 return jsonify({'message': 'User not found'}), 401
+            
+            # Convert row to dictionary
+            current_user = dict(user_row)
                 
         except jwt.ExpiredSignatureError:
             return jsonify({'message': 'Token has expired'}), 401
@@ -67,34 +106,33 @@ def signup():
         password = data['password']
         role = data['role']
         
-        # Validate role
-        if role not in ['admin', 'candidate']:
-            return jsonify({'message': 'Invalid role selected'}), 400
+        conn = get_db()
+        cursor = conn.cursor()
         
         # Check if user already exists
-        existing_user = users_collection.find_one({'email': email})
+        cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
+        existing_user = cursor.fetchone()
+        
         if existing_user:
+            conn.close()
             return jsonify({'message': 'Email already registered'}), 409
         
         # Hash password
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
         
-        # Create user document
-        user_document = {
-            'fullname': fullname,
-            'email': email,
-            'password': hashed_password,
-            'role': role,
-            'created_at': datetime.utcnow(),
-            'is_active': True
-        }
-        
         # Insert into database
-        result = users_collection.insert_one(user_document)
+        cursor.execute('''
+            INSERT INTO users (fullname, email, password, role)
+            VALUES (?, ?, ?, ?)
+        ''', (fullname, email, hashed_password, role))
+        
+        conn.commit()
+        user_id = cursor.lastrowid
+        conn.close()
         
         return jsonify({
             'message': 'User registered successfully',
-            'user_id': str(result.inserted_id)
+            'user_id': user_id
         }), 201
         
     except Exception as e:
@@ -113,11 +151,18 @@ def login():
         email = data['email']
         password = data['password']
         
-        # Find user by email
-        user = users_collection.find_one({'email': email})
+        conn = get_db()
+        cursor = conn.cursor()
         
-        if not user:
+        # Find user by email
+        cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
+        user_row = cursor.fetchone()
+        conn.close()
+        
+        if not user_row:
             return jsonify({'message': 'Invalid email or password'}), 401
+        
+        user = dict(user_row)
         
         # Verify password
         if not bcrypt.checkpw(password.encode('utf-8'), user['password']):
@@ -125,7 +170,7 @@ def login():
         
         # Generate JWT token
         token = jwt.encode({
-            'user_id': str(user['_id']),
+            'user_id': user['id'],
             'email': user['email'],
             'role': user['role'],
             'exp': datetime.utcnow() + timedelta(hours=24)
@@ -133,7 +178,7 @@ def login():
         
         # Prepare user data (remove password)
         user_data = {
-            'id': str(user['_id']),
+            'id': user['id'],
             'fullname': user['fullname'],
             'email': user['email'],
             'role': user['role'],
@@ -157,24 +202,33 @@ def update_profile(current_user):
     try:
         data = request.get_json()
         
-        # Prepare update data
-        update_data = {}
-        if 'fullname' in data:
-            update_data['fullname'] = data['fullname']
-        if 'phone' in data:
-            update_data['phone'] = data['phone']
-        if 'address' in data:
-            update_data['address'] = data['address']
+        conn = get_db()
+        cursor = conn.cursor()
         
-        # Update user in database
-        users_collection.update_one(
-            {'_id': current_user['_id']},
-            {'$set': update_data}
-        )
+        # Prepare update data
+        updates = []
+        params = []
+        
+        if 'fullname' in data:
+            updates.append('fullname = ?')
+            params.append(data['fullname'])
+        if 'phone' in data:
+            updates.append('phone = ?')
+            params.append(data['phone'])
+        if 'address' in data:
+            updates.append('address = ?')
+            params.append(data['address'])
+        
+        if updates:
+            params.append(current_user['id'])
+            query = f"UPDATE users SET {', '.join(updates)} WHERE id = ?"
+            cursor.execute(query, params)
+            conn.commit()
+        
+        conn.close()
         
         return jsonify({
-            'message': 'Profile updated successfully',
-            'user': update_data
+            'message': 'Profile updated successfully'
         }), 200
         
     except Exception as e:
@@ -202,17 +256,20 @@ def change_password(current_user):
         hashed_new_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
         
         # Update password in database
-        users_collection.update_one(
-            {'_id': current_user['_id']},
-            {'$set': {'password': hashed_new_password}}
-        )
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE users SET password = ? WHERE id = ?', 
+                      (hashed_new_password, current_user['id']))
+        conn.commit()
+        conn.close()
         
-        return jsonify({'message': 'Password changed successfully'}), 200
+        return jsonify({
+            'message': 'Password changed successfully'
+        }), 200
         
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({'message': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    print("Starting Flask server on http://localhost:5001")
     app.run(debug=True, port=5001)

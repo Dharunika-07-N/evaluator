@@ -1,0 +1,17 @@
+# Python virtual environment
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# SQLite database files
+*.db
+backend/exam_system.db
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
