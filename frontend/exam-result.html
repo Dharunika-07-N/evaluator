@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Result</title>
+    <link rel="stylesheet" href="css/exam-result.css">
+</head>
+<body>
+    <div class="container">
+        <div class="result-card">
+            <div class="result-header">
+                <div class="icon">🎓</div>
+                <h1>Exam Completed!</h1>
+                <p id="examTitle" class="exam-title"></p>
+            </div>
+
+            <div class="result-content">
+                <div class="score-section">
+                    <div class="score-circle">
+                        <div class="score-value" id="scoreValue">0</div>
+                        <div class="score-label">Score</div>
+                    </div>
+                    <div class="score-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Correct Answers:</span>
+                            <span class="detail-value" id="correctAnswers">0</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Total Questions:</span>
+                            <span class="detail-value" id="totalQuestions">0</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Percentage:</span>
+                            <span class="detail-value" id="percentage">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="time-section">
+                    <div class="time-icon">⏱️</div>
+                    <div class="time-content">
+                        <div class="time-label">Time Taken</div>
+                        <div class="time-value" id="timeTaken">00:00:00</div>
+                    </div>
+                </div>
+
+                <div class="message-section" id="messageSection">
+                    <p id="resultMessage"></p>
+                </div>
+            </div>
+
+            <div class="result-actions">
+                <button onclick="goToProfile()" class="btn btn-primary">Back to Profile</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/exam-result.js"></script>
+</body>
+</html>
