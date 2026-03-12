@@ -1050,6 +1050,8 @@ def submit_exam_attempt(current_user, attempt_id):
     try:
         data = request.get_json()
         answers = data.get('answers', [])  # [{question_id, selected_answer, time_taken}]
+        is_violation = data.get('is_violation', False)
+        violation_reason = data.get('violation_reason', None)
         
         conn = get_db()
         cursor = conn.cursor()
@@ -1117,6 +1119,8 @@ def submit_exam_attempt(current_user, attempt_id):
             ''', (attempt_id, question_id, selected_answer, time_taken, is_correct))
         
         # Update exam attempt
+        status = 'violated' if is_violation else 'completed'
+        
         cursor.execute('''
             UPDATE exam_attempts 
             SET end_time = CURRENT_TIMESTAMP,
@@ -1124,9 +1128,10 @@ def submit_exam_attempt(current_user, attempt_id):
                 score = ?,
                 total_questions = ?,
                 correct_answers = ?,
-                status = 'completed'
+                status = ?,
+                violation_reason = ?
             WHERE id = ?
-        ''', (total_time, total_score, total_questions, correct_count, attempt_id))
+        ''', (total_time, total_score, total_questions, correct_count, status, violation_reason, attempt_id))
         
         conn.commit()
         conn.close()
