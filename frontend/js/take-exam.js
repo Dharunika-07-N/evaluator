@@ -512,6 +512,11 @@ async function confirmSubmit() {
     // Stop timers
     clearInterval(examTimerInterval);
     clearInterval(questionTimerInterval);
+    
+    // Stop camera
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+    }
 
     const token = localStorage.getItem('token');
     
@@ -529,7 +534,11 @@ async function confirmSubmit() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ answers: answersArray })
+            body: JSON.stringify({ 
+                answers: answersArray,
+                is_violation: false,
+                violation_reason: null
+            })
         });
 
         const data = await response.json();
