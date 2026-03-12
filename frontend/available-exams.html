@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Available Exams</title>
+    <link rel="stylesheet" href="css/available-exams.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 Available Exams</h1>
+            <button onclick="goToProfile()" class="btn btn-secondary">Back to Profile</button>
+        </div>
+
+        <div class="exams-grid" id="examsGrid">
+            <div class="loading">
+                <div class="loader"></div>
+                <p>Loading exams...</p>
+            </div>
+        </div>
+
+        <div id="noExams" class="no-exams" style="display: none;">
+            <div class="no-exams-icon">📭</div>
+            <h3>No Exams Available</h3>
+            <p>There are no exams available at this time.</p>
+        </div>
+    </div>
+
+    <script src="js/available-exams.js"></script>
+</body>
+</html>
