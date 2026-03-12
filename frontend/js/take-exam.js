@@ -339,6 +339,58 @@ function updateQuestionNavigator() {
     });
 }
 
+// Start camera monitoring
+async function startCameraMonitoring() {
+    try {
+        const video = document.getElementById('cameraPreview');
+        cameraStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { width: 320, height: 240 }, 
+            audio: false 
+        });
+        video.srcObject = cameraStream;
+        video.play();
+    } catch (error) {
+        console.error('Camera access denied:', error);
+        alert('Camera access is required for this exam. Please allow camera access.');
+    }
+}
+
+// Setup tab switch detection
+function setupTabSwitchDetection() {
+    document.addEventListener('visibilitychange', async () => {
+        if (document.hidden && !isViolated) {
+            tabSwitchCount++;
+            console.log(`Tab switch detected: ${tabSwitchCount}`);
+            
+            // Record tab switch on server
+            await recordTabSwitch();
+            
+            if (tabSwitchCount >= MAX_TAB_SWITCHES) {
+                showViolationScreen();
+            } else {
+                alert(`Warning: Tab switching detected! (${tabSwitchCount}/${MAX_TAB_SWITCHES})\n\nYou have ${MAX_TAB_SWITCHES - tabSwitchCount} warnings remaining before exam termination.`);
+            }
+        }
+    });
+}
+
+// Record tab switch on server
+async function recordTabSwitch() {
+    const token = localStorage.getItem('token');
+    try {
+        const response = await fetch(`${API_URL}/candidate/attempts/${attemptId}/tab-switch`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        const data = await response.json();
+        console.log('Tab switch recorded:', data);
+    } catch (error) {
+        console.error('Error recording tab switch:', error);
+    }
+}
+
 // Jump to question
 function jumpToQuestion(index) {
     stopQuestionTimer();
