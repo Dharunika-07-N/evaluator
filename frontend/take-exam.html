@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Take Exam - Online Exam System</title>
+    <link rel="stylesheet" href="css/take-exam.css">
+</head>
+<body>
+    <div class="exam-container">
+        <!-- Exam Header -->
+        <div class="exam-header">
+            <div class="exam-info">
+                <h1 id="examTitle">Loading Exam...</h1>
+                <div class="exam-meta">
+                    <span id="examDuration"></span>
+                    <span id="totalQuestions"></span>
+                </div>
+            </div>
+            <div class="timer-section">
+                <div class="timer" id="timer">
+                    <span class="timer-label">Time Remaining:</span>
+                    <span class="timer-value" id="timerValue">00:00</span>
+                </div>
+                <div class="question-timer">
+                    <span>Question Time:</span>
+                    <span id="questionTimer">00:00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-section">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text">
+                Question <span id="currentQuestion">1</span> of <span id="totalQuestionsCount">0</span>
+            </div>
+        </div>
+
+        <!-- Question Section -->
+        <div class="question-section" id="questionSection">
+            <div class="loading">Loading questions...</div>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="navigation-section">
+            <button class="btn-nav btn-previous" id="previousBtn" onclick="previousQuestion()" disabled>
+                ← Previous
+            </button>
+            <button class="btn-nav btn-skip" id="skipBtn" onclick="skipQuestion()">
+                Skip →
+            </button>
+            <button class="btn-nav btn-next" id="nextBtn" onclick="nextQuestion()" style="display: none;">
+                Next →
+            </button>
+            <button class="btn-nav btn-submit" id="submitBtn" onclick="submitExam()" style="display: none;">
+                Submit Exam
+            </button>
+        </div>
+
+        <!-- Question Navigator -->
+        <div class="question-navigator">
+            <h3>Question Navigator</h3>
+            <div class="question-grid" id="questionGrid">
+                <!-- Question numbers will be populated here -->
+            </div>
+            <div class="navigator-legend">
+                <div class="legend-item">
+                    <span class="legend-box answered"></span> Answered
+                </div>
+                <div class="legend-item">
+                    <span class="legend-box skipped"></span> Skipped
+                </div>
+                <div class="legend-item">
+                    <span class="legend-box current"></span> Current
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit Confirmation Modal -->
+    <div id="submitModal" class="modal">
+        <div class="modal-content">
+            <h2>Submit Exam?</h2>
+            <p id="submitMessage">Are you sure you want to submit the exam?</p>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeSubmitModal()">Cancel</button>
+                <button class="btn-primary" onclick="confirmSubmit()">Yes, Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/take-exam.js"></script>
+</body>
+</html>
