@@ -290,6 +290,56 @@ td {
     color: #6c757d;
 }
 
+/* Tab Switch Badge */
+.tab-switch-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 15px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.tab-switch-badge.safe {
+    background: #d4edda;
+    color: #155724;
+}
+
+.tab-switch-badge.warning {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.tab-switch-badge.critical {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Status Badge */
+.status-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 15px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.status-completed {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-violated {
+    background: #f8d7da;
+    color: #721c24;
+    cursor: help;
+}
+
+/* Row styling for violated exams */
+.row-violated {
+    background-color: #fff5f5 !important;
+    border-left: 4px solid #dc3545;
+}
+
 /* Responsive Design */
 @media (max-width: 1024px) {
     .header {

@@ -169,8 +169,18 @@ function displayResults() {
         const submittedDate = new Date(attempt.submitted_at);
         const formattedDate = submittedDate.toLocaleString();
         
+        // Status badge
+        const statusBadge = attempt.status === 'violated' 
+            ? '<span class="status-badge status-violated" title="' + (attempt.violation_reason || 'Exam terminated') + '">⚠️ Violated</span>'
+            : '<span class="status-badge status-completed">✓ Completed</span>';
+        
+        // Tab switches badge
+        const tabSwitchBadge = attempt.tab_switches > 0
+            ? `<span class="tab-switch-badge ${attempt.tab_switches >= 3 ? 'critical' : 'warning'}">${attempt.tab_switches} switches</span>`
+            : '<span class="tab-switch-badge safe">0 switches</span>';
+        
         return `
-            <tr>
+            <tr class="${attempt.status === 'violated' ? 'row-violated' : ''}">
                 <td>#${attempt.id}</td>
                 <td>${attempt.candidate_name}</td>
                 <td>${attempt.candidate_email}</td>
@@ -183,6 +193,8 @@ function displayResults() {
                 <td>
                     <span class="time-badge">${timeFormatted}</span>
                 </td>
+                <td>${tabSwitchBadge}</td>
+                <td>${statusBadge}</td>
                 <td>${formattedDate}</td>
                 <td>
                     <button onclick="viewDetails(${attempt.id})" class="btn btn-small">
@@ -225,6 +237,10 @@ function sortAttempts(attempts) {
             case 'total_time':
                 aValue = a.total_time;
                 bValue = b.total_time;
+                break;
+            case 'tab_switches':
+                aValue = a.tab_switches || 0;
+                bValue = b.tab_switches || 0;
                 break;
             case 'submitted_at':
                 aValue = new Date(a.submitted_at);
