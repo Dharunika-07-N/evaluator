@@ -8,6 +8,10 @@ let questionStartTime = null;
 let examTimerInterval = null;
 let questionTimerInterval = null;
 let remainingTime = 0; // in seconds
+let tabSwitchCount = 0;
+const MAX_TAB_SWITCHES = 3;
+let isViolated = false;
+let cameraStream = null;
 
 // Check authentication and get exam ID
 document.addEventListener('DOMContentLoaded', async () => {
@@ -92,6 +96,12 @@ function initializeExam() {
         };
     });
 
+    // Start camera monitoring
+    startCameraMonitoring();
+
+    // Setup tab switch detection
+    setupTabSwitchDetection();
+
     // Start timers
     examStartTime = Date.now();
     remainingTime = examData.duration * 60; // Convert minutes to seconds
@@ -106,8 +116,10 @@ function initializeExam() {
 
     // Warn before leaving page
     window.addEventListener('beforeunload', (e) => {
-        e.preventDefault();
-        e.returnValue = '';
+        if (!isViolated) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
     });
 }
 
