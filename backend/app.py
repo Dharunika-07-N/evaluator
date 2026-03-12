@@ -998,6 +998,51 @@ def start_exam_attempt(current_user, exam_id):
         print(f"Error: {str(e)}")
         return jsonify({'message': 'Internal server error'}), 500
 
+@app.route('/api/candidate/attempts/<int:attempt_id>/tab-switch', methods=['POST'])
+@token_required
+def record_tab_switch(current_user, attempt_id):
+    """Record tab switch during exam"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Verify attempt belongs to current user
+        cursor.execute('''
+            SELECT * FROM exam_attempts 
+            WHERE id = ? AND user_id = ?
+        ''', (attempt_id, current_user['id']))
+        
+        attempt = cursor.fetchone()
+        
+        if not attempt:
+            conn.close()
+            return jsonify({'message': 'Exam attempt not found'}), 404
+        
+        if attempt['status'] != 'in_progress':
+            conn.close()
+            return jsonify({'message': 'Exam is not in progress'}), 400
+        
+        # Increment tab switches count
+        new_count = attempt['tab_switches'] + 1
+        
+        cursor.execute('''
+            UPDATE exam_attempts 
+            SET tab_switches = ?
+            WHERE id = ?
+        ''', (new_count, attempt_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'message': 'Tab switch recorded',
+            'tab_switches': new_count
+        }), 200
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
 @app.route('/api/candidate/attempts/<int:attempt_id>/submit', methods=['POST'])
 @token_required
 def submit_exam_attempt(current_user, attempt_id):
