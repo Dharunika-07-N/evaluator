@@ -1200,7 +1200,7 @@ def get_all_attempts(current_user):
             FROM exam_attempts ea
             INNER JOIN users u ON ea.user_id = u.id
             INNER JOIN exams e ON ea.exam_id = e.id
-            WHERE ea.status = 'completed'
+            WHERE ea.status IN ('completed', 'violated')
             ORDER BY ea.end_time DESC
         ''')
         
