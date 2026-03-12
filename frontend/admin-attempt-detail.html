@@ -72,6 +72,29 @@
                     <div class="summary-label">Avg Time/Question</div>
                 </div>
             </div>
+            <div class="summary-card" id="tabSwitchCard">
+                <div class="summary-icon">🔄</div>
+                <div class="summary-content">
+                    <div class="summary-value" id="tabSwitches">0</div>
+                    <div class="summary-label">Tab Switches</div>
+                </div>
+            </div>
+            <div class="summary-card" id="statusCard">
+                <div class="summary-icon">✅</div>
+                <div class="summary-content">
+                    <div class="summary-value" id="examStatus">Completed</div>
+                    <div class="summary-label">Status</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Violation Alert (hidden by default) -->
+        <div id="violationAlert" class="violation-alert" style="display: none;">
+            <div class="violation-alert-icon">⚠️</div>
+            <div class="violation-alert-content">
+                <h3>Exam Terminated Due to Violation</h3>
+                <p id="violationReason">Violation reason will appear here</p>
+            </div>
         </div>
 
         <div class="answers-section">

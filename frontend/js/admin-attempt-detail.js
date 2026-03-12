@@ -91,6 +91,40 @@ function displayAttemptDetails(attempt) {
     document.getElementById('avgTimePerQ').textContent = 
         `${String(avgMinutes).padStart(2, '0')}:${String(avgSeconds).padStart(2, '0')}`;
 
+    // Set tab switches count
+    const tabSwitches = attempt.tab_switches || 0;
+    document.getElementById('tabSwitches').textContent = tabSwitches;
+    
+    // Color code tab switch card
+    const tabSwitchCard = document.getElementById('tabSwitchCard');
+    if (tabSwitches >= 3) {
+        tabSwitchCard.style.borderLeft = '4px solid #dc3545';
+        tabSwitchCard.style.backgroundColor = '#fff5f5';
+    } else if (tabSwitches > 0) {
+        tabSwitchCard.style.borderLeft = '4px solid #ffc107';
+        tabSwitchCard.style.backgroundColor = '#fffef5';
+    } else {
+        tabSwitchCard.style.borderLeft = '4px solid #28a745';
+        tabSwitchCard.style.backgroundColor = '#f0fff4';
+    }
+
+    // Set exam status
+    const status = attempt.status || 'completed';
+    document.getElementById('examStatus').textContent = status === 'violated' ? 'Violated' : 'Completed';
+    
+    // Show violation alert if violated
+    if (status === 'violated' && attempt.violation_reason) {
+        document.getElementById('violationAlert').style.display = 'flex';
+        document.getElementById('violationReason').textContent = attempt.violation_reason;
+        
+        const statusCard = document.getElementById('statusCard');
+        statusCard.style.borderLeft = '4px solid #dc3545';
+        statusCard.style.backgroundColor = '#fff5f5';
+        
+        const statusIcon = statusCard.querySelector('.summary-icon');
+        statusIcon.textContent = '⚠️';
+    }
+
     // Display answers
     displayAnswers(attempt.answers);
 }
