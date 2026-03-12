@@ -64,6 +64,34 @@ def init_db():
         )
     ''')
     
+    # Create exams table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS exams (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT,
+            duration INTEGER NOT NULL,
+            total_marks INTEGER NOT NULL,
+            created_by INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active INTEGER DEFAULT 1,
+            FOREIGN KEY (created_by) REFERENCES users(id)
+        )
+    ''')
+    
+    # Create exam_questions junction table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS exam_questions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            exam_id INTEGER NOT NULL,
+            question_id INTEGER NOT NULL,
+            marks INTEGER DEFAULT 1,
+            FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE,
+            FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
+            UNIQUE(exam_id, question_id)
+        )
+    ''')
+    
     conn.commit()
     conn.close()
     print("Database initialized successfully")
@@ -582,6 +610,318 @@ def update_delete_question(current_user, question_id):
             conn.close()
             
             return jsonify({'message': 'Question deleted successfully'}), 200
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
+# ============= EXAM MANAGEMENT ROUTES =============
+
+@app.route('/api/admin/exams', methods=['GET', 'POST'])
+@token_required
+def manage_exams(current_user):
+    """List all exams or create a new exam (Admin only)"""
+    try:
+        # Check if user is admin
+        if current_user['role'] != 'Admin':
+            return jsonify({'message': 'Access denied. Admin only.'}), 403
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        if request.method == 'GET':
+            # Get all exams
+            cursor.execute('''
+                SELECT e.*, u.fullname as creator_name,
+                       (SELECT COUNT(*) FROM exam_questions WHERE exam_id = e.id) as question_count
+                FROM exams e
+                LEFT JOIN users u ON e.created_by = u.id
+                ORDER BY e.created_at DESC
+            ''')
+            
+            exams = []
+            for row in cursor.fetchall():
+                exams.append(dict(row))
+            
+            conn.close()
+            return jsonify({'exams': exams}), 200
+        
+        elif request.method == 'POST':
+            # Create new exam
+            data = request.get_json()
+            
+            # Validate required fields
+            required_fields = ['title', 'duration', 'total_marks']
+            for field in required_fields:
+                if field not in data:
+                    conn.close()
+                    return jsonify({'message': f'{field} is required'}), 400
+            
+            title = data['title']
+            description = data.get('description', '')
+            duration = data['duration']  # in minutes
+            total_marks = data['total_marks']
+            
+            cursor.execute('''
+                INSERT INTO exams (title, description, duration, total_marks, created_by)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (title, description, duration, total_marks, current_user['id']))
+            
+            conn.commit()
+            exam_id = cursor.lastrowid
+            conn.close()
+            
+            return jsonify({
+                'message': 'Exam created successfully',
+                'exam_id': exam_id
+            }), 201
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
+@app.route('/api/admin/exams/<int:exam_id>', methods=['GET', 'PUT', 'DELETE'])
+@token_required
+def manage_exam_detail(current_user, exam_id):
+    """Get, update, or delete a specific exam (Admin only)"""
+    try:
+        # Check if user is admin
+        if current_user['role'] != 'Admin':
+            return jsonify({'message': 'Access denied. Admin only.'}), 403
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        if request.method == 'GET':
+            # Get exam details with questions
+            cursor.execute('''
+                SELECT e.*, u.fullname as creator_name
+                FROM exams e
+                LEFT JOIN users u ON e.created_by = u.id
+                WHERE e.id = ?
+            ''', (exam_id,))
+            
+            exam_row = cursor.fetchone()
+            
+            if not exam_row:
+                conn.close()
+                return jsonify({'message': 'Exam not found'}), 404
+            
+            exam = dict(exam_row)
+            
+            # Get questions for this exam
+            cursor.execute('''
+                SELECT q.*, eq.marks
+                FROM questions q
+                INNER JOIN exam_questions eq ON q.id = eq.question_id
+                WHERE eq.exam_id = ?
+                ORDER BY eq.id
+            ''', (exam_id,))
+            
+            questions = []
+            for row in cursor.fetchall():
+                questions.append(dict(row))
+            
+            exam['questions'] = questions
+            exam['question_count'] = len(questions)
+            
+            conn.close()
+            return jsonify({'exam': exam}), 200
+        
+        elif request.method == 'PUT':
+            # Update exam
+            data = request.get_json()
+            
+            updates = []
+            params = []
+            
+            fields = ['title', 'description', 'duration', 'total_marks', 'is_active']
+            
+            for field in fields:
+                if field in data:
+                    updates.append(f'{field} = ?')
+                    params.append(data[field])
+            
+            if updates:
+                params.append(exam_id)
+                query = f"UPDATE exams SET {', '.join(updates)} WHERE id = ?"
+                cursor.execute(query, params)
+                conn.commit()
+            
+            conn.close()
+            return jsonify({'message': 'Exam updated successfully'}), 200
+        
+        elif request.method == 'DELETE':
+            # Delete exam (cascade will delete exam_questions)
+            cursor.execute('DELETE FROM exams WHERE id = ?', (exam_id,))
+            conn.commit()
+            conn.close()
+            
+            return jsonify({'message': 'Exam deleted successfully'}), 200
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
+@app.route('/api/admin/exams/<int:exam_id>/questions', methods=['POST', 'DELETE'])
+@token_required
+def manage_exam_questions(current_user, exam_id):
+    """Add or remove questions from an exam (Admin only)"""
+    try:
+        # Check if user is admin
+        if current_user['role'] != 'Admin':
+            return jsonify({'message': 'Access denied. Admin only.'}), 403
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        if request.method == 'POST':
+            # Add questions to exam
+            data = request.get_json()
+            
+            if 'question_ids' not in data:
+                conn.close()
+                return jsonify({'message': 'question_ids array is required'}), 400
+            
+            question_ids = data['question_ids']
+            marks_per_question = data.get('marks', 1)
+            
+            # Add each question to exam
+            added_count = 0
+            for question_id in question_ids:
+                try:
+                    cursor.execute('''
+                        INSERT INTO exam_questions (exam_id, question_id, marks)
+                        VALUES (?, ?, ?)
+                    ''', (exam_id, question_id, marks_per_question))
+                    added_count += 1
+                except sqlite3.IntegrityError:
+                    # Question already in exam, skip
+                    pass
+            
+            conn.commit()
+            conn.close()
+            
+            return jsonify({
+                'message': f'{added_count} questions added to exam',
+                'added_count': added_count
+            }), 200
+        
+        elif request.method == 'DELETE':
+            # Remove a question from exam
+            data = request.get_json()
+            
+            if 'question_id' not in data:
+                conn.close()
+                return jsonify({'message': 'question_id is required'}), 400
+            
+            question_id = data['question_id']
+            
+            cursor.execute('''
+                DELETE FROM exam_questions 
+                WHERE exam_id = ? AND question_id = ?
+            ''', (exam_id, question_id))
+            
+            conn.commit()
+            conn.close()
+            
+            return jsonify({'message': 'Question removed from exam'}), 200
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
+@app.route('/api/candidate/exams', methods=['GET'])
+@token_required
+def get_available_exams(current_user):
+    """Get list of active exams for candidates"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT e.id, e.title, e.description, e.duration, e.total_marks,
+                   (SELECT COUNT(*) FROM exam_questions WHERE exam_id = e.id) as question_count
+            FROM exams e
+            WHERE e.is_active = 1
+            ORDER BY e.created_at DESC
+        ''')
+        
+        exams = []
+        for row in cursor.fetchall():
+            exams.append(dict(row))
+        
+        conn.close()
+        return jsonify({'exams': exams}), 200
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
+@app.route('/api/candidate/exams/<int:exam_id>', methods=['GET'])
+@token_required
+def get_exam_for_candidate(current_user, exam_id):
+    """Get exam details with shuffled questions for a candidate"""
+    try:
+        import random
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Get exam details
+        cursor.execute('''
+            SELECT id, title, description, duration, total_marks
+            FROM exams
+            WHERE id = ? AND is_active = 1
+        ''', (exam_id,))
+        
+        exam_row = cursor.fetchone()
+        
+        if not exam_row:
+            conn.close()
+            return jsonify({'message': 'Exam not found or not active'}), 404
+        
+        exam = dict(exam_row)
+        
+        # Get questions for this exam (without correct answers for security)
+        cursor.execute('''
+            SELECT q.id, q.question_text, q.option_a, q.option_b, q.option_c, q.option_d, 
+                   q.topic, eq.marks
+            FROM questions q
+            INNER JOIN exam_questions eq ON q.id = eq.question_id
+            WHERE eq.exam_id = ?
+        ''', (exam_id,))
+        
+        questions = []
+        for row in cursor.fetchall():
+            question = dict(row)
+            
+            # Shuffle options for each question
+            options = [
+                {'key': 'A', 'text': question['option_a']},
+                {'key': 'B', 'text': question['option_b']},
+                {'key': 'C', 'text': question['option_c']},
+                {'key': 'D', 'text': question['option_d']}
+            ]
+            random.shuffle(options)
+            
+            question['options'] = options
+            # Remove individual option fields
+            del question['option_a']
+            del question['option_b']
+            del question['option_c']
+            del question['option_d']
+            
+            questions.append(question)
+        
+        # Shuffle questions order for each candidate
+        random.shuffle(questions)
+        
+        exam['questions'] = questions
+        exam['question_count'] = len(questions)
+        
+        conn.close()
+        return jsonify({'exam': exam}), 200
     
     except Exception as e:
         print(f"Error: {str(e)}")
