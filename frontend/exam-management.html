@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Management - Admin</title>
+    <link rel="stylesheet" href="css/exam-management.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Exam Management</h1>
+            <div class="header-actions">
+                <button class="btn-secondary" onclick="window.location.href='profile.html'">Back to Profile</button>
+                <button class="btn-primary" onclick="showCreateExamModal()">Create New Exam</button>
+            </div>
+        </div>
+
+        <!-- Exams List -->
+        <div class="exams-section">
+            <h2>All Exams</h2>
+            <div id="exams-list" class="exams-list">
+                <!-- Exams will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Exam Modal -->
+    <div id="createExamModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Exam</h2>
+                <span class="close" onclick="closeCreateExamModal()">&times;</span>
+            </div>
+            <form id="createExamForm">
+                <div class="form-group">
+                    <label for="examTitle">Exam Title *</label>
+                    <input type="text" id="examTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="examDescription">Description</label>
+                    <textarea id="examDescription" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="examDuration">Duration (minutes) *</label>
+                        <input type="number" id="examDuration" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="examMarks">Total Marks *</label>
+                        <input type="number" id="examMarks" min="1" required>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeCreateExamModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Create Exam</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Questions Modal -->
+    <div id="addQuestionsModal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>Add Questions to Exam</h2>
+                <span class="close" onclick="closeAddQuestionsModal()">&times;</span>
+            </div>
+            <div class="questions-selection">
+                <div class="search-box">
+                    <input type="text" id="questionSearch" placeholder="Search questions...">
+                </div>
+                <div id="availableQuestions" class="questions-grid">
+                    <!-- Available questions will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeAddQuestionsModal()">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveSelectedQuestions()">Add Selected Questions</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Exam Modal -->
+    <div id="viewExamModal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2 id="viewExamTitle">Exam Details</h2>
+                <span class="close" onclick="closeViewExamModal()">&times;</span>
+            </div>
+            <div id="examDetails" class="exam-details">
+                <!-- Exam details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/exam-management.js"></script>
+</body>
+</html>
