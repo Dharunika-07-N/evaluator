@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attempt Details - Admin</title>
+    <link rel="stylesheet" href="css/admin-attempt-detail.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Attempt Details</h1>
+            <button onclick="goBack()" class="btn btn-secondary">← Back</button>
+        </div>
+
+        <div class="info-section">
+            <div class="info-card">
+                <h3>👤 Candidate Information</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Name:</span>
+                        <span class="info-value" id="candidateName"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Email:</span>
+                        <span class="info-value" id="candidateEmail"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <h3>📝 Exam Information</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Exam Title:</span>
+                        <span class="info-value" id="examTitle"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Submitted:</span>
+                        <span class="info-value" id="submittedAt"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-section">
+            <div class="summary-card">
+                <div class="summary-icon">🎯</div>
+                <div class="summary-content">
+                    <div class="summary-value" id="scoreValue">0/0</div>
+                    <div class="summary-label">Score</div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon">📊</div>
+                <div class="summary-content">
+                    <div class="summary-value" id="percentage">0%</div>
+                    <div class="summary-label">Percentage</div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon">⏱️</div>
+                <div class="summary-content">
+                    <div class="summary-value" id="totalTime">00:00:00</div>
+                    <div class="summary-label">Total Time</div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon">⚡</div>
+                <div class="summary-content">
+                    <div class="summary-value" id="avgTimePerQ">00:00</div>
+                    <div class="summary-label">Avg Time/Question</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="answers-section">
+            <h2>📝 Detailed Answers</h2>
+            <div id="answersContainer">
+                <div class="loading">
+                    <div class="loader"></div>
+                    <p>Loading answers...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/admin-attempt-detail.js"></script>
+</body>
+</html>
