@@ -17,6 +17,11 @@ function loadUserData() {
     // Display user role
     document.getElementById('userRole').textContent = user.role;
     
+    // Show admin menu if user is admin
+    if (user.role === 'Admin') {
+        document.getElementById('adminMenu').style.display = 'block';
+    }
+    
     // Populate form fields
     document.getElementById('fullname').value = user.fullname || '';
     document.getElementById('email').value = user.email || '';
