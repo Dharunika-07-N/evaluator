@@ -391,6 +391,88 @@ async function recordTabSwitch() {
     }
 }
 
+// Show violation screen
+function showViolationScreen() {
+    isViolated = true;
+    
+    // Stop timers
+    clearInterval(examTimerInterval);
+    clearInterval(questionTimerInterval);
+    
+    // Stop camera
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+    }
+    
+    // Show red violation screen
+    document.body.innerHTML = `
+        <div class="violation-screen">
+            <div class="violation-content">
+                <div class="violation-icon">🚫</div>
+                <h1>Exam Terminated</h1>
+                <p class="violation-message">
+                    You have exceeded the maximum number of tab switches allowed during this exam.
+                </p>
+                <div class="violation-details">
+                    <p>⚠️ Total Tab Switches: <strong>${tabSwitchCount}</strong></p>
+                    <p>⚠️ Maximum Allowed: <strong>${MAX_TAB_SWITCHES}</strong></p>
+                </div>
+                <p class="violation-info">
+                    Your exam has been automatically submitted with the answers you provided up to this point.
+                </p>
+                <div class="violation-loader">
+                    <div class="spinner"></div>
+                    <p>Submitting your exam...</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Auto-submit with violation
+    submitWithViolation();
+}
+
+// Submit exam with violation
+async function submitWithViolation() {
+    const token = localStorage.getItem('token');
+    
+    // Prepare answers array (only answered questions)
+    const answersArray = examData.questions.map(q => ({
+        question_id: q.id,
+        selected_answer: answers[q.id].selected_answer,
+        time_taken: answers[q.id].time_taken
+    }));
+
+    try {
+        const response = await fetch(`${API_URL}/candidate/attempts/${attemptId}/submit`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ 
+                answers: answersArray,
+                is_violation: true,
+                violation_reason: `Exceeded tab switch limit (${tabSwitchCount}/${MAX_TAB_SWITCHES})`
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Wait 3 seconds then redirect
+            setTimeout(() => {
+                window.location.href = `exam-result.html?attempt_id=${attemptId}`;
+            }, 3000);
+        } else {
+            alert(data.message || 'Failed to submit exam');
+        }
+    } catch (error) {
+        console.error('Error submitting exam:', error);
+        alert('Failed to submit exam');
+    }
+}
+
 // Jump to question
 function jumpToQuestion(index) {
     stopQuestionTimer();
