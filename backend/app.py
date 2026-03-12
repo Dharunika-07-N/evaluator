@@ -6,6 +6,10 @@ import jwt
 from datetime import datetime, timedelta
 from functools import wraps
 import os
+import requests
+from bs4 import BeautifulSoup
+import re
+import random
 
 app = Flask(__name__)
 CORS(app)
@@ -39,6 +43,24 @@ def init_db():
             address TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             is_active INTEGER DEFAULT 1
+        )
+    ''')
+    
+    # Create questions table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS questions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            question_text TEXT NOT NULL,
+            option_a TEXT NOT NULL,
+            option_b TEXT NOT NULL,
+            option_c TEXT NOT NULL,
+            option_d TEXT NOT NULL,
+            correct_answer TEXT NOT NULL,
+            topic TEXT,
+            source_url TEXT,
+            created_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by) REFERENCES users(id)
         )
     ''')
     
@@ -267,6 +289,300 @@ def change_password(current_user):
             'message': 'Password changed successfully'
         }), 200
         
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
+# Helper functions for web scraping and question generation
+def scrape_content(url):
+    """Scrape text content from a URL"""
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'lxml')
+        
+        # Remove script and style elements
+        for script in soup(["script", "style", "nav", "footer", "header"]):
+            script.decompose()
+        
+        # Get text and clean it
+        text = soup.get_text(separator=' ', strip=True)
+        
+        # Clean up whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        return text
+    except Exception as e:
+        print(f"Scraping error: {str(e)}")
+        return None
+
+def generate_mcq_from_text(text, topic, num_questions=5):
+    """Generate MCQ questions from text content"""
+    try:
+        # Split text into sentences
+        sentences = re.split(r'[.!?]+', text)
+        sentences = [s.strip() for s in sentences if len(s.strip()) > 50]
+        
+        if len(sentences) < num_questions:
+            num_questions = len(sentences)
+        
+        # Select random sentences to create questions from
+        selected_sentences = random.sample(sentences, min(num_questions, len(sentences)))
+        
+        questions = []
+        
+        for sentence in selected_sentences:
+            # Find important words (nouns, proper nouns, numbers, technical terms)
+            words = sentence.split()
+            
+            # Look for capitalized words, numbers, or words in quotes
+            important_words = []
+            for i, word in enumerate(words):
+                clean_word = re.sub(r'[^\w\s]', '', word)
+                if (clean_word and 
+                    (len(clean_word) > 4 and word[0].isupper() and i > 0) or
+                    clean_word.isdigit() or
+                    len(clean_word) > 8):
+                    important_words.append((i, word, clean_word))
+            
+            if not important_words:
+                continue
+            
+            # Pick a random important word to make the question
+            idx, original_word, answer = random.choice(important_words)
+            
+            # Create the question by replacing the word with a blank
+            question_words = words.copy()
+            question_words[idx] = "______"
+            question_text = " ".join(question_words) + "?"
+            
+            # Generate distractors (wrong answers)
+            distractors = []
+            
+            # Simple distractor generation
+            if answer.isdigit():
+                num = int(answer)
+                distractors = [str(num + random.randint(1, 10)), 
+                             str(num - random.randint(1, 10)),
+                             str(num * 2)]
+            else:
+                # Generate generic distractors
+                distractor_options = [
+                    f"{answer[:len(answer)//2]}",
+                    f"{answer.upper()}",
+                    f"{answer.lower()}",
+                    f"Not {answer}",
+                    f"{answer}s",
+                    "None of the above",
+                    "All of the above",
+                    f"Similar to {answer}"
+                ]
+                distractors = random.sample([d for d in distractor_options if d != answer], 3)
+            
+            # Combine correct answer with distractors
+            options = [answer] + distractors[:3]
+            random.shuffle(options)
+            
+            # Determine which option is correct
+            correct_index = options.index(answer)
+            correct_answer = chr(65 + correct_index)  # A, B, C, or D
+            
+            questions.append({
+                'question_text': question_text,
+                'option_a': options[0],
+                'option_b': options[1],
+                'option_c': options[2],
+                'option_d': options[3],
+                'correct_answer': correct_answer,
+                'topic': topic
+            })
+        
+        return questions
+    except Exception as e:
+        print(f"Question generation error: {str(e)}")
+        return []
+
+# Admin MCQ Management Routes
+@app.route('/api/admin/generate-questions', methods=['POST'])
+@token_required
+def generate_questions(current_user):
+    """Generate MCQ questions from a URL or text"""
+    try:
+        # Check if user is admin
+        if current_user['role'] != 'Admin':
+            return jsonify({'message': 'Access denied. Admin only.'}), 403
+        
+        data = request.get_json()
+        
+        if 'url' not in data and 'text' not in data:
+            return jsonify({'message': 'URL or text content is required'}), 400
+        
+        topic = data.get('topic', 'General')
+        num_questions = int(data.get('num_questions', 5))
+        
+        # Get content either from URL or direct text
+        if 'url' in data:
+            content = scrape_content(data['url'])
+            if not content:
+                return jsonify({'message': 'Failed to scrape content from URL'}), 400
+            source_url = data['url']
+        else:
+            content = data['text']
+            source_url = None
+        
+        # Generate questions
+        questions = generate_mcq_from_text(content, topic, num_questions)
+        
+        if not questions:
+            return jsonify({'message': 'Failed to generate questions from content'}), 400
+        
+        # Save questions to database
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        saved_questions = []
+        for q in questions:
+            cursor.execute('''
+                INSERT INTO questions (question_text, option_a, option_b, option_c, option_d, 
+                                     correct_answer, topic, source_url, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (q['question_text'], q['option_a'], q['option_b'], q['option_c'], 
+                  q['option_d'], q['correct_answer'], q['topic'], source_url, current_user['id']))
+            
+            question_id = cursor.lastrowid
+            saved_questions.append({
+                'id': question_id,
+                **q
+            })
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'message': f'{len(saved_questions)} questions generated successfully',
+            'questions': saved_questions
+        }), 201
+        
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
+@app.route('/api/admin/questions', methods=['GET', 'POST'])
+@token_required
+def manage_questions(current_user):
+    """Get all questions or create a new question"""
+    try:
+        # Check if user is admin
+        if current_user['role'] != 'Admin':
+            return jsonify({'message': 'Access denied. Admin only.'}), 403
+        
+        if request.method == 'GET':
+            # Get all questions
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM questions ORDER BY created_at DESC')
+            questions = cursor.fetchall()
+            conn.close()
+            
+            questions_list = []
+            for q in questions:
+                questions_list.append({
+                    'id': q['id'],
+                    'question_text': q['question_text'],
+                    'option_a': q['option_a'],
+                    'option_b': q['option_b'],
+                    'option_c': q['option_c'],
+                    'option_d': q['option_d'],
+                    'correct_answer': q['correct_answer'],
+                    'topic': q['topic'],
+                    'source_url': q['source_url'],
+                    'created_at': q['created_at']
+                })
+            
+            return jsonify({'questions': questions_list}), 200
+        
+        elif request.method == 'POST':
+            # Create a new question manually
+            data = request.get_json()
+            
+            required_fields = ['question_text', 'option_a', 'option_b', 'option_c', 
+                             'option_d', 'correct_answer']
+            for field in required_fields:
+                if field not in data:
+                    return jsonify({'message': f'{field} is required'}), 400
+            
+            conn = get_db()
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT INTO questions (question_text, option_a, option_b, option_c, option_d,
+                                     correct_answer, topic, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (data['question_text'], data['option_a'], data['option_b'], data['option_c'],
+                  data['option_d'], data['correct_answer'], data.get('topic', 'General'), 
+                  current_user['id']))
+            
+            question_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            
+            return jsonify({
+                'message': 'Question created successfully',
+                'question_id': question_id
+            }), 201
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
+@app.route('/api/admin/questions/<int:question_id>', methods=['PUT', 'DELETE'])
+@token_required
+def update_delete_question(current_user, question_id):
+    """Update or delete a specific question"""
+    try:
+        # Check if user is admin
+        if current_user['role'] != 'Admin':
+            return jsonify({'message': 'Access denied. Admin only.'}), 403
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        if request.method == 'PUT':
+            # Update question
+            data = request.get_json()
+            
+            updates = []
+            params = []
+            
+            fields = ['question_text', 'option_a', 'option_b', 'option_c', 'option_d', 
+                     'correct_answer', 'topic']
+            
+            for field in fields:
+                if field in data:
+                    updates.append(f'{field} = ?')
+                    params.append(data[field])
+            
+            if updates:
+                params.append(question_id)
+                query = f"UPDATE questions SET {', '.join(updates)} WHERE id = ?"
+                cursor.execute(query, params)
+                conn.commit()
+            
+            conn.close()
+            return jsonify({'message': 'Question updated successfully'}), 200
+        
+        elif request.method == 'DELETE':
+            # Delete question
+            cursor.execute('DELETE FROM questions WHERE id = ?', (question_id,))
+            conn.commit()
+            conn.close()
+            
+            return jsonify({'message': 'Question deleted successfully'}), 200
+    
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({'message': 'Internal server error'}), 500
