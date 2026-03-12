@@ -20,6 +20,8 @@ function loadUserData() {
     // Show admin menu if user is admin
     if (user.role === 'Admin') {
         document.getElementById('adminMenu').style.display = 'block';
+    } else if (user.role === 'Candidate') {
+        document.getElementById('candidateMenu').style.display = 'block';
     }
     
     // Populate form fields
