@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Results - Admin</title>
+    <link rel="stylesheet" href="css/admin-results.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Exam Results Dashboard</h1>
+            <button onclick="goToProfile()" class="btn btn-secondary">Back to Profile</button>
+        </div>
+
+        <div class="filters">
+            <input type="text" id="searchInput" placeholder="Search by candidate name or email...">
+            <select id="examFilter">
+                <option value="">All Exams</option>
+            </select>
+            <button onclick="refreshResults()" class="btn btn-primary">🔄 Refresh</button>
+        </div>
+
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="totalAttempts">0</div>
+                    <div class="stat-label">Total Attempts</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📝</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="totalExams">0</div>
+                    <div class="stat-label">Exams Taken</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📈</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="avgScore">0%</div>
+                    <div class="stat-label">Average Score</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⏱️</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="avgTime">00:00</div>
+                    <div class="stat-label">Average Time</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="resultsTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('id')" class="sortable">ID <span class="sort-icon">↕️</span></th>
+                        <th onclick="sortTable('candidate_name')" class="sortable">Candidate <span class="sort-icon">↕️</span></th>
+                        <th onclick="sortTable('candidate_email')" class="sortable">Email <span class="sort-icon">↕️</span></th>
+                        <th onclick="sortTable('exam_title')" class="sortable">Exam <span class="sort-icon">↕️</span></th>
+                        <th onclick="sortTable('score')" class="sortable">Score <span class="sort-icon">↕️</span></th>
+                        <th onclick="sortTable('total_time')" class="sortable">Time <span class="sort-icon">↕️</span></th>
+                        <th onclick="sortTable('submitted_at')" class="sortable">Submitted <span class="sort-icon">↕️</span></th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                    <tr>
+                        <td colspan="8" class="loading">
+                            <div class="loader"></div>
+                            <p>Loading results...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="noResults" class="no-results" style="display: none;">
+            <div class="no-results-icon">📭</div>
+            <h3>No Results Found</h3>
+            <p>No exam attempts have been submitted yet.</p>
+        </div>
+    </div>
+
+    <script src="js/admin-results.js"></script>
+</body>
+</html>
