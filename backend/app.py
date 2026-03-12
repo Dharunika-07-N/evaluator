@@ -92,6 +92,38 @@ def init_db():
         )
     ''')
     
+    # Create exam_attempts table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS exam_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            exam_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            end_time TIMESTAMP,
+            total_time INTEGER,
+            score REAL,
+            total_questions INTEGER,
+            correct_answers INTEGER,
+            status TEXT DEFAULT 'in_progress',
+            FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ''')
+    
+    # Create question_answers table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS question_answers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            attempt_id INTEGER NOT NULL,
+            question_id INTEGER NOT NULL,
+            selected_answer TEXT,
+            time_taken INTEGER,
+            is_correct INTEGER DEFAULT 0,
+            FOREIGN KEY (attempt_id) REFERENCES exam_attempts(id) ON DELETE CASCADE,
+            FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
+        )
+    ''')
+    
     conn.commit()
     conn.close()
     print("Database initialized successfully")
@@ -922,6 +954,266 @@ def get_exam_for_candidate(current_user, exam_id):
         
         conn.close()
         return jsonify({'exam': exam}), 200
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
+# ============= EXAM ATTEMPT ROUTES =============
+
+@app.route('/api/candidate/exams/<int:exam_id>/start', methods=['POST'])
+@token_required
+def start_exam_attempt(current_user, exam_id):
+    """Start a new exam attempt for a candidate"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Check if exam exists and is active
+        cursor.execute('SELECT * FROM exams WHERE id = ? AND is_active = 1', (exam_id,))
+        exam = cursor.fetchone()
+        
+        if not exam:
+            conn.close()
+            return jsonify({'message': 'Exam not found or not active'}), 404
+        
+        # Create exam attempt
+        cursor.execute('''
+            INSERT INTO exam_attempts (exam_id, user_id, status)
+            VALUES (?, ?, 'in_progress')
+        ''', (exam_id, current_user['id']))
+        
+        conn.commit()
+        attempt_id = cursor.lastrowid
+        conn.close()
+        
+        return jsonify({
+            'message': 'Exam attempt started',
+            'attempt_id': attempt_id
+        }), 201
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
+@app.route('/api/candidate/attempts/<int:attempt_id>/submit', methods=['POST'])
+@token_required
+def submit_exam_attempt(current_user, attempt_id):
+    """Submit exam answers and calculate score"""
+    try:
+        data = request.get_json()
+        answers = data.get('answers', [])  # [{question_id, selected_answer, time_taken}]
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Verify attempt belongs to current user
+        cursor.execute('''
+            SELECT * FROM exam_attempts 
+            WHERE id = ? AND user_id = ?
+        ''', (attempt_id, current_user['id']))
+        
+        attempt = cursor.fetchone()
+        
+        if not attempt:
+            conn.close()
+            return jsonify({'message': 'Exam attempt not found'}), 404
+        
+        if attempt['status'] == 'completed':
+            conn.close()
+            return jsonify({'message': 'Exam already submitted'}), 400
+        
+        exam_id = attempt['exam_id']
+        
+        # Get all questions with correct answers
+        cursor.execute('''
+            SELECT q.id, q.correct_answer, eq.marks
+            FROM questions q
+            INNER JOIN exam_questions eq ON q.id = eq.question_id
+            WHERE eq.exam_id = ?
+        ''', (exam_id,))
+        
+        questions_map = {}
+        for row in cursor.fetchall():
+            questions_map[row['id']] = {
+                'correct_answer': row['correct_answer'],
+                'marks': row['marks']
+            }
+        
+        # Process answers and calculate score
+        total_score = 0
+        correct_count = 0
+        total_questions = len(questions_map)
+        total_time = 0
+        
+        for answer in answers:
+            question_id = answer['question_id']
+            selected_answer = answer.get('selected_answer')
+            time_taken = answer.get('time_taken', 0)
+            total_time += time_taken
+            
+            is_correct = 0
+            if question_id in questions_map:
+                correct_answer = questions_map[question_id]['correct_answer']
+                marks = questions_map[question_id]['marks']
+                
+                if selected_answer and selected_answer.upper() == correct_answer.upper():
+                    is_correct = 1
+                    correct_count += 1
+                    total_score += marks
+            
+            # Save answer
+            cursor.execute('''
+                INSERT INTO question_answers 
+                (attempt_id, question_id, selected_answer, time_taken, is_correct)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (attempt_id, question_id, selected_answer, time_taken, is_correct))
+        
+        # Update exam attempt
+        cursor.execute('''
+            UPDATE exam_attempts 
+            SET end_time = CURRENT_TIMESTAMP,
+                total_time = ?,
+                score = ?,
+                total_questions = ?,
+                correct_answers = ?,
+                status = 'completed'
+            WHERE id = ?
+        ''', (total_time, total_score, total_questions, correct_count, attempt_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'message': 'Exam submitted successfully',
+            'score': total_score,
+            'correct_answers': correct_count,
+            'total_questions': total_questions,
+            'total_time': total_time
+        }), 200
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
+@app.route('/api/candidate/attempts/<int:attempt_id>', methods=['GET'])
+@token_required
+def get_attempt_result(current_user, attempt_id):
+    """Get exam attempt results for candidate"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Get attempt details
+        cursor.execute('''
+            SELECT ea.*, e.title, e.total_marks, e.duration
+            FROM exam_attempts ea
+            INNER JOIN exams e ON ea.exam_id = e.id
+            WHERE ea.id = ? AND ea.user_id = ?
+        ''', (attempt_id, current_user['id']))
+        
+        attempt = cursor.fetchone()
+        
+        if not attempt:
+            conn.close()
+            return jsonify({'message': 'Exam attempt not found'}), 404
+        
+        result = dict(attempt)
+        conn.close()
+        
+        return jsonify({'result': result}), 200
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
+@app.route('/api/admin/attempts', methods=['GET'])
+@token_required
+def get_all_attempts(current_user):
+    """Get all exam attempts with candidate details (Admin only)"""
+    try:
+        # Check if user is admin
+        if current_user['role'] != 'Admin':
+            return jsonify({'message': 'Access denied. Admin only.'}), 403
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT ea.*, 
+                   u.fullname as candidate_name,
+                   u.email as candidate_email,
+                   e.title as exam_title,
+                   e.total_marks
+            FROM exam_attempts ea
+            INNER JOIN users u ON ea.user_id = u.id
+            INNER JOIN exams e ON ea.exam_id = e.id
+            WHERE ea.status = 'completed'
+            ORDER BY ea.end_time DESC
+        ''')
+        
+        attempts = []
+        for row in cursor.fetchall():
+            attempts.append(dict(row))
+        
+        conn.close()
+        return jsonify({'attempts': attempts}), 200
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
+@app.route('/api/admin/attempts/<int:attempt_id>', methods=['GET'])
+@token_required
+def get_attempt_details(current_user, attempt_id):
+    """Get detailed exam attempt with all answers (Admin only)"""
+    try:
+        # Check if user is admin
+        if current_user['role'] != 'Admin':
+            return jsonify({'message': 'Access denied. Admin only.'}), 403
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Get attempt details
+        cursor.execute('''
+            SELECT ea.*, 
+                   u.fullname as candidate_name,
+                   u.email as candidate_email,
+                   e.title as exam_title,
+                   e.total_marks,
+                   e.duration
+            FROM exam_attempts ea
+            INNER JOIN users u ON ea.user_id = u.id
+            INNER JOIN exams e ON ea.exam_id = e.id
+            WHERE ea.id = ?
+        ''', (attempt_id,))
+        
+        attempt = cursor.fetchone()
+        
+        if not attempt:
+            conn.close()
+            return jsonify({'message': 'Exam attempt not found'}), 404
+        
+        result = dict(attempt)
+        
+        # Get all answers
+        cursor.execute('''
+            SELECT qa.*, q.question_text, q.correct_answer,
+                   q.option_a, q.option_b, q.option_c, q.option_d
+            FROM question_answers qa
+            INNER JOIN questions q ON qa.question_id = q.id
+            WHERE qa.attempt_id = ?
+        ''', (attempt_id,))
+        
+        answers = []
+        for row in cursor.fetchall():
+            answers.append(dict(row))
+        
+        result['answers'] = answers
+        
+        conn.close()
+        return jsonify({'result': result}), 200
     
     except Exception as e:
         print(f"Error: {str(e)}")
