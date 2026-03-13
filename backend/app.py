@@ -170,6 +170,9 @@ def token_required(f):
     
     return decorated
 
+def is_admin(user):
+    return str(user.get('role', '')).lower() == 'admin'
+
 @app.route('/')
 def home():
     return jsonify({'message': 'Online Exam System API', 'status': 'running'})
@@ -383,87 +386,149 @@ def scrape_content(url):
         return None
 
 def generate_mcq_from_text(text, topic, num_questions=5):
-    """Generate MCQ questions from text content"""
+    """Generate meaningful MCQ questions from text content using concept-definition extraction."""
     try:
-        # Split text into sentences
-        sentences = re.split(r'[.!?]+', text)
-        sentences = [s.strip() for s in sentences if len(s.strip()) > 50]
-        
-        if len(sentences) < num_questions:
-            num_questions = len(sentences)
-        
-        # Select random sentences to create questions from
-        selected_sentences = random.sample(sentences, min(num_questions, len(sentences)))
-        
+        # Split and clean sentences
+        raw_sentences = re.split(r'[.!?]+', text)
+        sentences = [re.sub(r'\s+', ' ', s).strip() for s in raw_sentences]
+        sentences = [s for s in sentences if 40 <= len(s) <= 260]
+
+        if not sentences:
+            return []
+
+        # Extract concept-definition style facts
+        definition_patterns = [
+            r'^(?P<term>[A-Z][A-Za-z0-9\-\s]{2,60}?)\s+(?:is|are|refers to|means|is defined as)\s+(?P<definition>.+)$',
+            r'^(?P<term>[A-Za-z][A-Za-z0-9\-\s]{2,60}?)\s+(?:is used to|are used to)\s+(?P<definition>.+)$',
+            r'^(?P<term>[A-Za-z][A-Za-z0-9\-\s]{2,60}?)\s+(?:consists of|includes)\s+(?P<definition>.+)$'
+        ]
+
+        facts = []
+        seen_terms = set()
+        for sentence in sentences:
+            for pattern in definition_patterns:
+                match = re.match(pattern, sentence, flags=re.IGNORECASE)
+                if not match:
+                    continue
+
+                term = re.sub(r'\s+', ' ', match.group('term')).strip(' ,;:-')
+                definition = re.sub(r'\s+', ' ', match.group('definition')).strip(' ,;:-')
+
+                # Basic quality filters
+                if len(term) < 3 or len(term) > 70:
+                    continue
+                if len(definition) < 25:
+                    continue
+
+                key = term.lower()
+                if key in seen_terms:
+                    continue
+
+                seen_terms.add(key)
+                facts.append({'term': term, 'definition': definition})
+                break
+
+        # If we have enough facts, build stronger MCQs
         questions = []
-        
-        for sentence in selected_sentences:
-            # Find important words (nouns, proper nouns, numbers, technical terms)
-            words = sentence.split()
-            
-            # Look for capitalized words, numbers, or words in quotes
-            important_words = []
-            for i, word in enumerate(words):
-                clean_word = re.sub(r'[^\w\s]', '', word)
-                if (clean_word and 
-                    (len(clean_word) > 4 and word[0].isupper() and i > 0) or
-                    clean_word.isdigit() or
-                    len(clean_word) > 8):
-                    important_words.append((i, word, clean_word))
-            
-            if not important_words:
-                continue
-            
-            # Pick a random important word to make the question
-            idx, original_word, answer = random.choice(important_words)
-            
-            # Create the question by replacing the word with a blank
-            question_words = words.copy()
-            question_words[idx] = "______"
-            question_text = " ".join(question_words) + "?"
-            
-            # Generate distractors (wrong answers)
-            distractors = []
-            
-            # Simple distractor generation
-            if answer.isdigit():
-                num = int(answer)
-                distractors = [str(num + random.randint(1, 10)), 
-                             str(num - random.randint(1, 10)),
-                             str(num * 2)]
-            else:
-                # Generate generic distractors
-                distractor_options = [
-                    f"{answer[:len(answer)//2]}",
-                    f"{answer.upper()}",
-                    f"{answer.lower()}",
-                    f"Not {answer}",
-                    f"{answer}s",
-                    "None of the above",
-                    "All of the above",
-                    f"Similar to {answer}"
-                ]
-                distractors = random.sample([d for d in distractor_options if d != answer], 3)
-            
-            # Combine correct answer with distractors
-            options = [answer] + distractors[:3]
-            random.shuffle(options)
-            
-            # Determine which option is correct
-            correct_index = options.index(answer)
-            correct_answer = chr(65 + correct_index)  # A, B, C, or D
-            
-            questions.append({
-                'question_text': question_text,
-                'option_a': options[0],
-                'option_b': options[1],
-                'option_c': options[2],
-                'option_d': options[3],
-                'correct_answer': correct_answer,
-                'topic': topic
-            })
-        
-        return questions
+        if len(facts) >= 4:
+            random.shuffle(facts)
+            target_count = min(num_questions, len(facts))
+
+            for fact in facts[:target_count]:
+                other_defs = [f['definition'] for f in facts if f['term'].lower() != fact['term'].lower()]
+                if len(other_defs) < 3:
+                    continue
+
+                distractors = random.sample(other_defs, 3)
+                correct = fact['definition']
+                options = [correct] + distractors
+                random.shuffle(options)
+
+                questions.append({
+                    'question_text': f"What best describes {fact['term']}?",
+                    'option_a': options[0],
+                    'option_b': options[1],
+                    'option_c': options[2],
+                    'option_d': options[3],
+                    'correct_answer': chr(65 + options.index(correct)),
+                    'topic': topic
+                })
+
+            # Add reverse-definition questions for variety
+            remaining = num_questions - len(questions)
+            if remaining > 0 and len(facts) >= 4:
+                reverse_facts = random.sample(facts, min(remaining, len(facts)))
+                for fact in reverse_facts:
+                    other_terms = [f['term'] for f in facts if f['term'].lower() != fact['term'].lower()]
+                    if len(other_terms) < 3:
+                        continue
+
+                    distractor_terms = random.sample(other_terms, 3)
+                    correct_term = fact['term']
+                    options = [correct_term] + distractor_terms
+                    random.shuffle(options)
+
+                    questions.append({
+                        'question_text': f"Which term matches this description: {fact['definition']}?",
+                        'option_a': options[0],
+                        'option_b': options[1],
+                        'option_c': options[2],
+                        'option_d': options[3],
+                        'correct_answer': chr(65 + options.index(correct_term)),
+                        'topic': topic
+                    })
+
+        # Fallback: better fill-in style with contextual distractors
+        if len(questions) < max(2, min(num_questions, 3)):
+            candidate_terms = []
+            for s in sentences:
+                # Capture technical-like words (long words, CamelCase, acronyms)
+                terms = re.findall(r'\b([A-Z]{2,}|[A-Z][a-zA-Z]{4,}|[a-z]{8,})\b', s)
+                candidate_terms.extend(terms)
+
+            candidate_terms = list(dict.fromkeys([t.strip() for t in candidate_terms if len(t.strip()) >= 4]))
+
+            for sentence in random.sample(sentences, min(len(sentences), num_questions)):
+                if len(questions) >= num_questions:
+                    break
+
+                words = sentence.split()
+                target_index = None
+                target_word = None
+
+                for i, w in enumerate(words):
+                    clean = re.sub(r'[^A-Za-z0-9\-]', '', w)
+                    if clean in candidate_terms:
+                        target_index = i
+                        target_word = clean
+                        break
+
+                if not target_word:
+                    continue
+
+                question_words = words.copy()
+                question_words[target_index] = '_____'
+                question_text = ' '.join(question_words)
+
+                distractors_pool = [t for t in candidate_terms if t.lower() != target_word.lower()]
+                if len(distractors_pool) < 3:
+                    continue
+
+                distractors = random.sample(distractors_pool, 3)
+                options = [target_word] + distractors
+                random.shuffle(options)
+
+                questions.append({
+                    'question_text': f"Complete the statement: {question_text}",
+                    'option_a': options[0],
+                    'option_b': options[1],
+                    'option_c': options[2],
+                    'option_d': options[3],
+                    'correct_answer': chr(65 + options.index(target_word)),
+                    'topic': topic
+                })
+
+        return questions[:num_questions]
     except Exception as e:
         print(f"Question generation error: {str(e)}")
         return []
@@ -475,7 +540,7 @@ def generate_questions(current_user):
     """Generate MCQ questions from a URL or text"""
     try:
         # Check if user is admin
-        if current_user['role'] != 'Admin':
+        if not is_admin(current_user):
             return jsonify({'message': 'Access denied. Admin only.'}), 403
         
         data = request.get_json()
@@ -539,7 +604,7 @@ def manage_questions(current_user):
     """Get all questions or create a new question"""
     try:
         # Check if user is admin
-        if current_user['role'] != 'Admin':
+        if not is_admin(current_user):
             return jsonify({'message': 'Access denied. Admin only.'}), 403
         
         if request.method == 'GET':
@@ -607,7 +672,7 @@ def update_delete_question(current_user, question_id):
     """Update or delete a specific question"""
     try:
         # Check if user is admin
-        if current_user['role'] != 'Admin':
+        if not is_admin(current_user):
             return jsonify({'message': 'Access denied. Admin only.'}), 403
         
         conn = get_db()
@@ -654,7 +719,7 @@ def update_delete_question(current_user, question_id):
 def upload_questions(current_user):
     """Bulk upload questions (Admin only)"""
     try:
-        if current_user['role'].lower() != 'admin':
+        if not is_admin(current_user):
             return jsonify({'message': 'Access denied. Admin only.'}), 403
 
         data = request.get_json()
@@ -719,7 +784,7 @@ def manage_exams(current_user):
     """List all exams or create a new exam (Admin only)"""
     try:
         # Check if user is admin
-        if current_user['role'] != 'Admin':
+        if not is_admin(current_user):
             return jsonify({'message': 'Access denied. Admin only.'}), 403
         
         conn = get_db()
@@ -782,7 +847,7 @@ def manage_exam_detail(current_user, exam_id):
     """Get, update, or delete a specific exam (Admin only)"""
     try:
         # Check if user is admin
-        if current_user['role'] != 'Admin':
+        if not is_admin(current_user):
             return jsonify({'message': 'Access denied. Admin only.'}), 403
         
         conn = get_db()
@@ -865,7 +930,7 @@ def manage_exam_questions(current_user, exam_id):
     """Add or remove questions from an exam (Admin only)"""
     try:
         # Check if user is admin
-        if current_user['role'] != 'Admin':
+        if not is_admin(current_user):
             return jsonify({'message': 'Access denied. Admin only.'}), 403
         
         conn = get_db()
@@ -1247,7 +1312,7 @@ def get_all_attempts(current_user):
     """Get all exam attempts with candidate details (Admin only)"""
     try:
         # Check if user is admin
-        if current_user['role'] != 'Admin':
+        if not is_admin(current_user):
             return jsonify({'message': 'Access denied. Admin only.'}), 403
         
         conn = get_db()
@@ -1283,7 +1348,7 @@ def get_attempt_details(current_user, attempt_id):
     """Get detailed exam attempt with all answers (Admin only)"""
     try:
         # Check if user is admin
-        if current_user['role'] != 'Admin':
+        if not is_admin(current_user):
             return jsonify({'message': 'Access denied. Admin only.'}), 403
         
         conn = get_db()
