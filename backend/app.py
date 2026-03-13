@@ -385,39 +385,153 @@ def scrape_content(url):
         print(f"Scraping error: {str(e)}")
         return None
 
+def normalize_text(value, max_len=None):
+    """Normalize whitespace and optionally trim text length safely."""
+    text = re.sub(r'\s+', ' ', (value or '')).strip()
+    if max_len and len(text) > max_len:
+        text = text[:max_len].rsplit(' ', 1)[0].strip() + '...'
+    return text
+
+def scrape_qa_pairs(url):
+    """Scrape structured question-answer pairs from a webpage when available."""
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.content, 'lxml')
+
+        # Remove non-content areas
+        for tag in soup(["script", "style", "nav", "footer", "header", "noscript"]):
+            tag.decompose()
+
+        pairs = []
+        seen = set()
+
+        def add_pair(question, answer):
+            q = normalize_text(question, 220)
+            a = normalize_text(answer, 240)
+
+            if len(q) < 8 or len(a) < 20:
+                return
+
+            if not q.endswith('?'):
+                # Keep prompts concise and question-like
+                q = f"{q.rstrip('.:;')}?"
+
+            key = (q.lower(), a.lower())
+            if key in seen:
+                return
+
+            seen.add(key)
+            pairs.append({'question': q, 'answer': a})
+
+        # Strategy 1: explicit .question / .answer style blocks
+        question_nodes = soup.select('.question, .faq-question, [class*="question"]')
+        answer_nodes = soup.select('.answer, .faq-answer, [class*="answer"]')
+        for q_node, a_node in zip(question_nodes, answer_nodes):
+            add_pair(q_node.get_text(' ', strip=True), a_node.get_text(' ', strip=True))
+
+        # Strategy 2: FAQ-like definition lists (dt/dd)
+        for dt in soup.find_all('dt'):
+            dd = dt.find_next_sibling('dd')
+            if dd:
+                add_pair(dt.get_text(' ', strip=True), dd.get_text(' ', strip=True))
+
+        # Strategy 3: question paragraph followed by explanatory paragraph
+        for p in soup.find_all('p'):
+            question_text = normalize_text(p.get_text(' ', strip=True), 220)
+            if not question_text.endswith('?'):
+                continue
+
+            next_p = p.find_next_sibling('p')
+            if not next_p:
+                continue
+
+            answer_text = normalize_text(next_p.get_text(' ', strip=True), 240)
+            add_pair(question_text, answer_text)
+
+        return pairs
+    except Exception as e:
+        print(f"Q&A scraping error: {str(e)}")
+        return []
+
+def generate_mcq_from_qa_pairs(qa_pairs, topic, num_questions=5):
+    """Generate MCQs from structured Q&A pairs with plausible distractors."""
+    try:
+        valid_pairs = []
+        for qa in qa_pairs:
+            q = normalize_text(qa.get('question'), 220)
+            a = normalize_text(qa.get('answer'), 240)
+            if len(q) >= 8 and len(a) >= 20:
+                valid_pairs.append({'question': q, 'answer': a})
+
+        if len(valid_pairs) < 4:
+            return []
+
+        answers_pool = list({qa['answer'] for qa in valid_pairs})
+        questions = []
+
+        random.shuffle(valid_pairs)
+        for qa in valid_pairs:
+            if len(questions) >= num_questions:
+                break
+
+            correct_answer = qa['answer']
+            distractor_pool = [a for a in answers_pool if a.lower() != correct_answer.lower()]
+            if len(distractor_pool) < 3:
+                continue
+
+            distractors = random.sample(distractor_pool, 3)
+            options = [correct_answer] + distractors
+            random.shuffle(options)
+
+            questions.append({
+                'question_text': qa['question'],
+                'option_a': options[0],
+                'option_b': options[1],
+                'option_c': options[2],
+                'option_d': options[3],
+                'correct_answer': chr(65 + options.index(correct_answer)),
+                'topic': topic
+            })
+
+        return questions
+    except Exception as e:
+        print(f"Q&A MCQ generation error: {str(e)}")
+        return []
+
 def generate_mcq_from_text(text, topic, num_questions=5):
-    """Generate meaningful MCQ questions from text content using concept-definition extraction."""
+    """Generate logical MCQs from text using concept-definition and usage relations only."""
     try:
         # Split and clean sentences
         raw_sentences = re.split(r'[.!?]+', text)
         sentences = [re.sub(r'\s+', ' ', s).strip() for s in raw_sentences]
-        sentences = [s for s in sentences if 40 <= len(s) <= 260]
+        sentences = [s for s in sentences if 35 <= len(s) <= 280]
 
         if not sentences:
             return []
 
-        # Extract concept-definition style facts
+        # 1) Extract concept-definition facts
         definition_patterns = [
-            r'^(?P<term>[A-Z][A-Za-z0-9\-\s]{2,60}?)\s+(?:is|are|refers to|means|is defined as)\s+(?P<definition>.+)$',
-            r'^(?P<term>[A-Za-z][A-Za-z0-9\-\s]{2,60}?)\s+(?:is used to|are used to)\s+(?P<definition>.+)$',
-            r'^(?P<term>[A-Za-z][A-Za-z0-9\-\s]{2,60}?)\s+(?:consists of|includes)\s+(?P<definition>.+)$'
+            r'^(?P<term>[A-Z][A-Za-z0-9\-\s]{2,70}?)\s+(?:is|are|refers to|means|is defined as)\s+(?P<definition>.+)$',
+            r'^(?P<term>[A-Za-z][A-Za-z0-9\-\s]{2,70}?)\s+(?:consists of|includes)\s+(?P<definition>.+)$'
         ]
 
         facts = []
         seen_terms = set()
         for sentence in sentences:
             for pattern in definition_patterns:
-                match = re.match(pattern, sentence, flags=re.IGNORECASE)
-                if not match:
+                m = re.match(pattern, sentence, flags=re.IGNORECASE)
+                if not m:
                     continue
 
-                term = re.sub(r'\s+', ' ', match.group('term')).strip(' ,;:-')
-                definition = re.sub(r'\s+', ' ', match.group('definition')).strip(' ,;:-')
+                term = re.sub(r'\s+', ' ', m.group('term')).strip(' ,;:-')
+                definition = re.sub(r'\s+', ' ', m.group('definition')).strip(' ,;:-')
 
-                # Basic quality filters
-                if len(term) < 3 or len(term) > 70:
-                    continue
-                if len(definition) < 25:
+                if len(term) < 3 or len(definition) < 20:
                     continue
 
                 key = term.lower()
@@ -428,13 +542,46 @@ def generate_mcq_from_text(text, topic, num_questions=5):
                 facts.append({'term': term, 'definition': definition})
                 break
 
-        # If we have enough facts, build stronger MCQs
-        questions = []
-        if len(facts) >= 4:
-            random.shuffle(facts)
-            target_count = min(num_questions, len(facts))
+        # 2) Extract usage relations: "X is used for A, B, and C"
+        usage_facts = []
+        usage_seen = set()
+        usage_pattern = re.compile(
+            r'^(?P<term>[A-Za-z][A-Za-z0-9\-\s]{2,70}?)\s+(?:is|are)\s+used\s+for\s+(?P<uses>.+)$',
+            flags=re.IGNORECASE
+        )
 
-            for fact in facts[:target_count]:
+        for sentence in sentences:
+            m = usage_pattern.match(sentence)
+            if not m:
+                continue
+
+            term = re.sub(r'\s+', ' ', m.group('term')).strip(' ,;:-')
+            uses_text = m.group('uses')
+            parts = re.split(r',|\band\b', uses_text, flags=re.IGNORECASE)
+            uses = [re.sub(r'\s+', ' ', p).strip(' ,;:-') for p in parts]
+            uses = [u for u in uses if len(u) >= 4]
+
+            if len(uses) == 0:
+                continue
+
+            key = (term.lower(), tuple(sorted([u.lower() for u in uses])))
+            if key in usage_seen:
+                continue
+
+            usage_seen.add(key)
+            usage_facts.append({'term': term, 'uses': uses})
+
+        questions = []
+
+        # A) Definition-based MCQs
+        if len(facts) >= 4:
+            shuffled_facts = facts[:]
+            random.shuffle(shuffled_facts)
+
+            for fact in shuffled_facts:
+                if len(questions) >= num_questions:
+                    break
+
                 other_defs = [f['definition'] for f in facts if f['term'].lower() != fact['term'].lower()]
                 if len(other_defs) < 3:
                     continue
@@ -445,7 +592,7 @@ def generate_mcq_from_text(text, topic, num_questions=5):
                 random.shuffle(options)
 
                 questions.append({
-                    'question_text': f"What best describes {fact['term']}?",
+                    'question_text': f"What is the most accurate description of {fact['term']}?",
                     'option_a': options[0],
                     'option_b': options[1],
                     'option_c': options[2],
@@ -454,80 +601,70 @@ def generate_mcq_from_text(text, topic, num_questions=5):
                     'topic': topic
                 })
 
-            # Add reverse-definition questions for variety
-            remaining = num_questions - len(questions)
-            if remaining > 0 and len(facts) >= 4:
-                reverse_facts = random.sample(facts, min(remaining, len(facts)))
-                for fact in reverse_facts:
-                    other_terms = [f['term'] for f in facts if f['term'].lower() != fact['term'].lower()]
-                    if len(other_terms) < 3:
-                        continue
+        # B) Usage-based MCQs
+        if len(questions) < num_questions and len(usage_facts) >= 1:
+            usage_pool = []
+            for uf in usage_facts:
+                usage_pool.extend(uf['uses'])
+            usage_pool = list(dict.fromkeys([u for u in usage_pool if len(u) >= 4]))
 
-                    distractor_terms = random.sample(other_terms, 3)
-                    correct_term = fact['term']
-                    options = [correct_term] + distractor_terms
-                    random.shuffle(options)
+            shuffled_usage = usage_facts[:]
+            random.shuffle(shuffled_usage)
 
-                    questions.append({
-                        'question_text': f"Which term matches this description: {fact['definition']}?",
-                        'option_a': options[0],
-                        'option_b': options[1],
-                        'option_c': options[2],
-                        'option_d': options[3],
-                        'correct_answer': chr(65 + options.index(correct_term)),
-                        'topic': topic
-                    })
-
-        # Fallback: better fill-in style with contextual distractors
-        if len(questions) < max(2, min(num_questions, 3)):
-            candidate_terms = []
-            for s in sentences:
-                # Capture technical-like words (long words, CamelCase, acronyms)
-                terms = re.findall(r'\b([A-Z]{2,}|[A-Z][a-zA-Z]{4,}|[a-z]{8,})\b', s)
-                candidate_terms.extend(terms)
-
-            candidate_terms = list(dict.fromkeys([t.strip() for t in candidate_terms if len(t.strip()) >= 4]))
-
-            for sentence in random.sample(sentences, min(len(sentences), num_questions)):
+            for uf in shuffled_usage:
                 if len(questions) >= num_questions:
                     break
 
-                words = sentence.split()
-                target_index = None
-                target_word = None
-
-                for i, w in enumerate(words):
-                    clean = re.sub(r'[^A-Za-z0-9\-]', '', w)
-                    if clean in candidate_terms:
-                        target_index = i
-                        target_word = clean
-                        break
-
-                if not target_word:
+                correct_use = random.choice(uf['uses'])
+                distractor_pool = [u for u in usage_pool if u.lower() not in [x.lower() for x in uf['uses']]]
+                if len(distractor_pool) < 3:
                     continue
 
-                question_words = words.copy()
-                question_words[target_index] = '_____'
-                question_text = ' '.join(question_words)
-
-                distractors_pool = [t for t in candidate_terms if t.lower() != target_word.lower()]
-                if len(distractors_pool) < 3:
-                    continue
-
-                distractors = random.sample(distractors_pool, 3)
-                options = [target_word] + distractors
+                distractors = random.sample(distractor_pool, 3)
+                options = [correct_use] + distractors
                 random.shuffle(options)
 
                 questions.append({
-                    'question_text': f"Complete the statement: {question_text}",
+                    'question_text': f"Which of the following is a valid application of {uf['term']}?",
                     'option_a': options[0],
                     'option_b': options[1],
                     'option_c': options[2],
                     'option_d': options[3],
-                    'correct_answer': chr(65 + options.index(target_word)),
+                    'correct_answer': chr(65 + options.index(correct_use)),
                     'topic': topic
                 })
 
+        # C) Statement-verification MCQs (logical; no blanks)
+        if len(questions) < num_questions and len(facts) >= 4:
+            shuffled_facts = facts[:]
+            random.shuffle(shuffled_facts)
+
+            for fact in shuffled_facts:
+                if len(questions) >= num_questions:
+                    break
+
+                wrong_facts = [f for f in facts if f['term'].lower() != fact['term'].lower()]
+                if len(wrong_facts) < 3:
+                    continue
+
+                wrong_samples = random.sample(wrong_facts, 3)
+                correct_statement = f"{fact['term']} is {fact['definition']}"
+                wrong_statements = [f"{fact['term']} is {wf['definition']}" for wf in wrong_samples]
+
+                options = [correct_statement] + wrong_statements
+                random.shuffle(options)
+
+                questions.append({
+                    'question_text': f"Which statement about {fact['term']} is correct?",
+                    'option_a': options[0],
+                    'option_b': options[1],
+                    'option_c': options[2],
+                    'option_d': options[3],
+                    'correct_answer': chr(65 + options.index(correct_statement)),
+                    'topic': topic
+                })
+
+        # Return only logical MCQs; no fill-in-the-blank fallback
         return questions[:num_questions]
     except Exception as e:
         print(f"Question generation error: {str(e)}")
@@ -551,18 +688,27 @@ def generate_questions(current_user):
         topic = data.get('topic', 'General')
         num_questions = int(data.get('num_questions', 5))
         
+        qa_pairs = []
+
         # Get content either from URL or direct text
         if 'url' in data:
             content = scrape_content(data['url'])
             if not content:
                 return jsonify({'message': 'Failed to scrape content from URL'}), 400
+
+            qa_pairs = scrape_qa_pairs(data['url'])
             source_url = data['url']
         else:
             content = data['text']
             source_url = None
         
-        # Generate questions
-        questions = generate_mcq_from_text(content, topic, num_questions)
+        # Generate questions with structured Q&A first, then fallback to text-based generation
+        questions = []
+        if qa_pairs:
+            questions = generate_mcq_from_qa_pairs(qa_pairs, topic, num_questions)
+
+        if not questions:
+            questions = generate_mcq_from_text(content, topic, num_questions)
         
         if not questions:
             return jsonify({'message': 'Failed to generate questions from content'}), 400
