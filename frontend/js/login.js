@@ -21,14 +21,21 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         const data = await response.json();
         
         if (response.ok) {
+            const normalizedRole = (data.user.role || '').toLowerCase();
+
             // Store user data in localStorage
             localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem('token', data.token);
+            localStorage.setItem('role', normalizedRole);
             
             // Show success message and redirect
             showMessage('Login successful! Redirecting...', 'success');
             setTimeout(() => {
-                window.location.href = 'profile.html';
+                if (normalizedRole === 'admin') {
+                    window.location.href = 'admin-results.html';
+                } else {
+                    window.location.href = 'profile.html';
+                }
             }, 1000);
         } else {
             showMessage(data.message || 'Login failed. Please check your credentials.', 'error');

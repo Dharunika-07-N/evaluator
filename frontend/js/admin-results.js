@@ -6,7 +6,7 @@ let sortDirection = 'desc';
 
 document.addEventListener('DOMContentLoaded', async () => {
     const token = localStorage.getItem('token');
-    const role = localStorage.getItem('role');
+    const role = (localStorage.getItem('role') || '').toLowerCase();
 
     if (!token) {
         alert('Please login first');
@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    if (role !== 'Admin') {
+    if (role !== 'admin') {
         alert('Access denied. Admin only.');
         window.location.href = 'profile.html';
         return;
@@ -87,29 +87,31 @@ function populateExamFilter() {
 
 function calculateStats() {
     const totalAttempts = allAttempts.length;
-    const uniqueExams = new Set(allAttempts.map(a => a.exam_id)).size;
-    
-    // Calculate average score (percentage)
+    const attendedStudents = new Set(allAttempts.map(a => a.user_id)).size;
+
     let totalPercentage = 0;
+    let passedCount = 0;
+    let failedCount = 0;
+
     allAttempts.forEach(attempt => {
-        const scoreText = attempt.score;
-        const [correct, total] = scoreText.split('/').map(Number);
-        totalPercentage += (correct / total) * 100;
+        const [correct, total] = attempt.score.split('/').map(Number);
+        const percentage = total > 0 ? (correct / total) * 100 : 0;
+        totalPercentage += percentage;
+
+        const isPassed = percentage >= 50 && attempt.status !== 'violated';
+        if (isPassed) {
+            passedCount += 1;
+        } else {
+            failedCount += 1;
+        }
     });
+
     const avgScore = totalAttempts > 0 ? (totalPercentage / totalAttempts).toFixed(1) : 0;
-    
-    // Calculate average time
-    const totalTime = allAttempts.reduce((sum, attempt) => sum + attempt.total_time, 0);
-    const avgTimeSeconds = totalAttempts > 0 ? Math.floor(totalTime / totalAttempts) : 0;
-    const avgTimeMinutes = Math.floor(avgTimeSeconds / 60);
-    const avgTimeSecondsRemainder = avgTimeSeconds % 60;
-    const avgTimeFormatted = `${String(avgTimeMinutes).padStart(2, '0')}:${String(avgTimeSecondsRemainder).padStart(2, '0')}`;
-    
-    // Update stats
-    document.getElementById('totalAttempts').textContent = totalAttempts;
-    document.getElementById('totalExams').textContent = uniqueExams;
+
+    document.getElementById('attendedCount').textContent = attendedStudents;
+    document.getElementById('passedCount').textContent = passedCount;
+    document.getElementById('failedCount').textContent = failedCount;
     document.getElementById('avgScore').textContent = `${avgScore}%`;
-    document.getElementById('avgTime').textContent = avgTimeFormatted;
 }
 
 function filterResults() {

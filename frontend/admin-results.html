@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exam Results - Admin</title>
+    <title>Admin Dashboard - Online Exam System</title>
     <link rel="stylesheet" href="css/admin-results.css">
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📊 Exam Results Dashboard</h1>
-            <button onclick="goToProfile()" class="btn btn-secondary">Back to Profile</button>
+            <h1>📊 Admin Dashboard</h1>
+            <button onclick="goToProfile()" class="btn btn-secondary">Settings</button>
         </div>
 
         <div class="filters">
@@ -25,15 +25,22 @@
             <div class="stat-card">
                 <div class="stat-icon">👥</div>
                 <div class="stat-content">
-                    <div class="stat-value" id="totalAttempts">0</div>
-                    <div class="stat-label">Total Attempts</div>
+                    <div class="stat-value" id="attendedCount">0</div>
+                    <div class="stat-label">Students Attended</div>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">📝</div>
+                <div class="stat-icon">✅</div>
                 <div class="stat-content">
-                    <div class="stat-value" id="totalExams">0</div>
-                    <div class="stat-label">Exams Taken</div>
+                    <div class="stat-value" id="passedCount">0</div>
+                    <div class="stat-label">Passed</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">❌</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="failedCount">0</div>
+                    <div class="stat-label">Failed</div>
                 </div>
             </div>
             <div class="stat-card">
@@ -41,13 +48,6 @@
                 <div class="stat-content">
                     <div class="stat-value" id="avgScore">0%</div>
                     <div class="stat-label">Average Score</div>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">⏱️</div>
-                <div class="stat-content">
-                    <div class="stat-value" id="avgTime">00:00</div>
-                    <div class="stat-label">Average Time</div>
                 </div>
             </div>
         </div>
