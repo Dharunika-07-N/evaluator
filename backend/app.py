@@ -649,6 +649,68 @@ def update_delete_question(current_user, question_id):
         print(f"Error: {str(e)}")
         return jsonify({'message': 'Internal server error'}), 500
 
+@app.route('/api/admin/questions/upload', methods=['POST'])
+@token_required
+def upload_questions(current_user):
+    """Bulk upload questions (Admin only)"""
+    try:
+        if current_user['role'].lower() != 'admin':
+            return jsonify({'message': 'Access denied. Admin only.'}), 403
+
+        data = request.get_json()
+        questions = data.get('questions', []) if data else []
+
+        if not isinstance(questions, list) or len(questions) == 0:
+            return jsonify({'message': 'questions array is required'}), 400
+
+        conn = get_db()
+        cursor = conn.cursor()
+
+        created_count = 0
+        failed_count = 0
+        errors = []
+
+        for index, q in enumerate(questions, start=1):
+            question_text = (q.get('question_text') or '').strip()
+            option_a = (q.get('option_a') or '').strip()
+            option_b = (q.get('option_b') or '').strip()
+            option_c = (q.get('option_c') or '').strip()
+            option_d = (q.get('option_d') or '').strip()
+            correct_answer = (q.get('correct_answer') or '').strip().upper()
+            topic = (q.get('topic') or 'General').strip()
+
+            if not all([question_text, option_a, option_b, option_c, option_d]):
+                failed_count += 1
+                errors.append(f'Row {index}: Missing required fields')
+                continue
+
+            if correct_answer not in ['A', 'B', 'C', 'D']:
+                failed_count += 1
+                errors.append(f'Row {index}: correct_answer must be A, B, C, or D')
+                continue
+
+            cursor.execute('''
+                INSERT INTO questions (question_text, option_a, option_b, option_c, option_d,
+                                     correct_answer, topic, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (question_text, option_a, option_b, option_c, option_d,
+                  correct_answer, topic, current_user['id']))
+            created_count += 1
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'message': 'Bulk upload completed',
+            'created_count': created_count,
+            'failed_count': failed_count,
+            'errors': errors[:20]
+        }), 200
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'message': 'Internal server error'}), 500
+
 # ============= EXAM MANAGEMENT ROUTES =============
 
 @app.route('/api/admin/exams', methods=['GET', 'POST'])
