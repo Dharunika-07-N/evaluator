@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function checkAuth() {
     const token = localStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const role = (user.role || '').toLowerCase();
     
     if (!token || !user.role) {
         window.location.href = 'login.html';
@@ -17,7 +18,7 @@ function checkAuth() {
     }
     
     // Check if user is admin
-    if (user.role !== 'Admin') {
+    if (role !== 'admin') {
         alert('Access denied. This page is for administrators only.');
         window.location.href = 'profile.html';
         return;

@@ -2,7 +2,7 @@ const API_URL = 'http://localhost:5001/api';
 
 document.addEventListener('DOMContentLoaded', async () => {
     const token = localStorage.getItem('token');
-    const role = localStorage.getItem('role');
+    const role = (localStorage.getItem('role') || '').toLowerCase();
 
     if (!token) {
         alert('Please login first');
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    if (role !== 'Admin') {
+    if (role !== 'admin') {
         alert('Access denied. Admin only.');
         window.location.href = 'profile.html';
         return;

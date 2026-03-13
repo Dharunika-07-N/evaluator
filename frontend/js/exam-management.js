@@ -7,8 +7,9 @@ let allQuestions = [];
 document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const role = (user.role || '').toLowerCase();
 
-    if (!token || user.role !== 'Admin') {
+    if (!token || role !== 'admin') {
         alert('Access denied. Admin only.');
         window.location.href = 'login.html';
         return;

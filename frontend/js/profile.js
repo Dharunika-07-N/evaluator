@@ -14,13 +14,15 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 function loadUserData() {
+    const normalizedRole = (user.role || '').toLowerCase();
+
     // Display user role
     document.getElementById('userRole').textContent = user.role;
     
     // Show admin menu if user is admin
-    if (user.role === 'Admin') {
+    if (normalizedRole === 'admin') {
         document.getElementById('adminMenu').style.display = 'block';
-    } else if (user.role === 'Candidate') {
+    } else if (normalizedRole === 'candidate') {
         document.getElementById('candidateMenu').style.display = 'block';
     }
     
