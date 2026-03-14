@@ -91,7 +91,7 @@ async function loadExams() {
         }
     } catch (error) {
         console.error('Error loading exams:', error);
-        examsList.innerHTML = '<div class="empty-state">Failed to load exams</div>';
+        examsList.innerHTML = `<div class="empty-state">Failed to load exams: ${error.message}</div>`;
     }
 }
 
@@ -174,13 +174,21 @@ document.getElementById('createExamForm').addEventListener('submit', async (e) =
         const scheduleStart = `${startDate}T${startTime}`;
         const scheduleEnd = `${endDate}T${endTime}`;
 
-        if (new Date(scheduleStart) >= new Date(scheduleEnd)) {
+        const startDt = new Date(scheduleStart);
+        const endDt = new Date(scheduleEnd);
+
+        if (isNaN(startDt.getTime()) || isNaN(endDt.getTime())) {
+            alert('Invalid Date or Time format.');
+            return;
+        }
+
+        if (startDt >= endDt) {
             alert('End time must be after Start time');
             return;
         }
 
-        startIso = new Date(scheduleStart).toISOString();
-        endIso = new Date(scheduleEnd).toISOString();
+        startIso = startDt.toISOString();
+        endIso = endDt.toISOString();
     }
 
     try {
@@ -212,7 +220,7 @@ document.getElementById('createExamForm').addEventListener('submit', async (e) =
         }
     } catch (error) {
         console.error('Error creating exam:', error);
-        alert('Failed to create exam');
+        alert('Failed to create exam: ' + error.message);
     }
 });
 
