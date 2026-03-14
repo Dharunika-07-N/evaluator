@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadExams() {
     const token = localStorage.getItem('token');
     const examsList = document.getElementById('exams-list');
-    
+
     examsList.innerHTML = '<div class="loading">Loading exams...</div>';
 
     try {
@@ -45,14 +45,29 @@ async function loadExams() {
                 return;
             }
 
-            examsList.innerHTML = data.exams.map(exam => `
+            examsList.innerHTML = data.exams.map(exam => {
+                const currentStatus = exam.status || (exam.is_active ? 'started' : 'draft');
+
+                let actionButtons = '';
+                if (currentStatus === 'draft' || currentStatus === 'stopped') {
+                    actionButtons += `<button class="btn-success btn-small" onclick="startExamNow(${exam.id})">Start Now</button>`;
+                    actionButtons += `<button class="btn-secondary btn-small" onclick="showScheduleModal(${exam.id})">Schedule</button>`;
+                } else if (currentStatus === 'started' || currentStatus === 'scheduled') {
+                    actionButtons += `<button class="btn-secondary btn-small" onclick="stopExam(${exam.id})">Stop Exam</button>`;
+                }
+
+                let statusClass = 'inactive';
+                if (currentStatus === 'started') statusClass = 'active';
+                if (currentStatus === 'scheduled') statusClass = 'warning'; // or some other class
+
+                return `
                 <div class="exam-card">
                     <div class="exam-card-header">
                         <div>
                             <div class="exam-card-title">${exam.title}</div>
                         </div>
-                        <span class="exam-status ${exam.is_active ? 'active' : 'inactive'}">
-                            ${exam.is_active ? 'Active' : 'Inactive'}
+                        <span class="exam-status ${statusClass}" style="text-transform: capitalize;">
+                            ${currentStatus}
                         </span>
                     </div>
                     <div class="exam-card-info">
@@ -61,17 +76,16 @@ async function loadExams() {
                         <div>🎯 <strong>${exam.total_marks}</strong> marks</div>
                         <div>👤 ${exam.creator_name || 'Unknown'}</div>
                     </div>
-                    ${exam.description ? `<p style="color: #666; font-size: 14px; margin-bottom: 15px;">${exam.description}</p>` : ''}
-                    <div class="exam-card-actions">
+                    ${exam.description ? `<p style="color: #666; font-size: 14px; margin-bottom: 5px;">${exam.description}</p>` : ''}
+                    ${currentStatus === 'scheduled' && exam.scheduled_start ? `<p style="color: #d97706; font-size: 13px; font-weight: bold; margin-bottom: 10px;">Scheduled: ${new Date(exam.scheduled_start).toLocaleString()}</p>` : ''}
+                    <div class="exam-card-actions" style="margin-top: 15px;">
                         <button class="btn-primary btn-small" onclick="viewExam(${exam.id})">View Details</button>
-                        <button class="btn-success btn-small" onclick="addQuestionsToExam(${exam.id})">Add Questions</button>
-                        <button class="btn-secondary btn-small" onclick="toggleExamStatus(${exam.id}, ${exam.is_active})">
-                            ${exam.is_active ? 'Deactivate' : 'Activate'}
-                        </button>
+                        <button class="btn-success btn-small" onclick="addQuestionsToExam(${exam.id})">Edit Qs</button>
+                        ${actionButtons}
                         <button class="btn-danger btn-small" onclick="deleteExam(${exam.id})">Delete</button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         } else {
             examsList.innerHTML = `<div class="empty-state">${data.message}</div>`;
         }
@@ -85,11 +99,46 @@ async function loadExams() {
 function showCreateExamModal() {
     document.getElementById('createExamModal').style.display = 'block';
     document.getElementById('createExamForm').reset();
+    if (typeof toggleCreateScheduleInputs === 'function') {
+        toggleCreateScheduleInputs();
+    }
 }
 
 // Close create exam modal
 function closeCreateExamModal() {
     document.getElementById('createExamModal').style.display = 'none';
+}
+
+function toggleCreateScheduleInputs() {
+    const type = document.querySelector('input[name="createExamType"]:checked').value;
+    const inputsDiv = document.getElementById('createScheduleInputs');
+    if (type === 'scheduled') {
+        inputsDiv.style.display = 'block';
+
+        // Auto-fill min date to current time to help admin
+        const now = new Date();
+        const tzOffset = now.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(now.getTime() - tzOffset)).toISOString();
+        const dateString = localISOTime.split('T')[0];
+        const timeString = localISOTime.split('T')[1].substring(0, 5);
+
+        document.getElementById('createScheduleStartDate').min = dateString;
+        document.getElementById('createScheduleEndDate').min = dateString;
+
+        document.getElementById('createScheduleStartDate').value = dateString;
+        document.getElementById('createScheduleStartTime').value = timeString;
+        document.getElementById('createScheduleEndDate').value = dateString;
+
+        const later = new Date(now.getTime() + 60 * 60 * 1000 - tzOffset).toISOString().split('T')[1].substring(0, 5);
+        document.getElementById('createScheduleEndTime').value = later;
+
+    } else {
+        inputsDiv.style.display = 'none';
+        document.getElementById('createScheduleStartDate').value = '';
+        document.getElementById('createScheduleStartTime').value = '';
+        document.getElementById('createScheduleEndDate').value = '';
+        document.getElementById('createScheduleEndTime').value = '';
+    }
 }
 
 // Handle create exam form submission
@@ -102,6 +151,38 @@ document.getElementById('createExamForm').addEventListener('submit', async (e) =
     const duration = parseInt(document.getElementById('examDuration').value);
     const total_marks = parseInt(document.getElementById('examMarks').value);
 
+    const type = document.querySelector('input[name="createExamType"]:checked').value;
+
+    let status = 'draft';
+    let startIso = null;
+    let endIso = null;
+
+    if (type === 'started') {
+        status = 'started';
+    } else if (type === 'scheduled') {
+        status = 'scheduled';
+        const startDate = document.getElementById('createScheduleStartDate').value;
+        const startTime = document.getElementById('createScheduleStartTime').value;
+        const endDate = document.getElementById('createScheduleEndDate').value;
+        const endTime = document.getElementById('createScheduleEndTime').value;
+
+        if (!startDate || !startTime || !endDate || !endTime) {
+            alert('Please select both Date and Time for Start and End times.');
+            return;
+        }
+
+        const scheduleStart = `${startDate}T${startTime}`;
+        const scheduleEnd = `${endDate}T${endTime}`;
+
+        if (new Date(scheduleStart) >= new Date(scheduleEnd)) {
+            alert('End time must be after Start time');
+            return;
+        }
+
+        startIso = new Date(scheduleStart).toISOString();
+        endIso = new Date(scheduleEnd).toISOString();
+    }
+
     try {
         const response = await fetch(`${API_URL}/admin/exams`, {
             method: 'POST',
@@ -113,7 +194,10 @@ document.getElementById('createExamForm').addEventListener('submit', async (e) =
                 title,
                 description,
                 duration,
-                total_marks
+                total_marks,
+                status: status,
+                scheduled_start: startIso,
+                scheduled_end: endIso
             })
         });
 
@@ -135,7 +219,7 @@ document.getElementById('createExamForm').addEventListener('submit', async (e) =
 // View exam details
 async function viewExam(examId) {
     const token = localStorage.getItem('token');
-    
+
     try {
         const response = await fetch(`${API_URL}/admin/exams/${examId}`, {
             headers: {
@@ -148,7 +232,7 @@ async function viewExam(examId) {
         if (response.ok) {
             const exam = data.exam;
             document.getElementById('viewExamTitle').textContent = exam.title;
-            
+
             let detailsHTML = `
                 <div class="exam-info">
                     <div class="exam-info-row">
@@ -211,7 +295,7 @@ async function viewExam(examId) {
             }
 
             detailsHTML += '</div>';
-            
+
             document.getElementById('examDetails').innerHTML = detailsHTML;
             document.getElementById('viewExamModal').style.display = 'block';
         } else {
@@ -240,7 +324,7 @@ async function addQuestionsToExam(examId) {
 async function loadAvailableQuestions() {
     const token = localStorage.getItem('token');
     const questionsContainer = document.getElementById('availableQuestions');
-    
+
     questionsContainer.innerHTML = '<div class="loading">Loading questions...</div>';
 
     try {
@@ -254,7 +338,7 @@ async function loadAvailableQuestions() {
 
         if (response.ok) {
             allQuestions = data.questions || [];
-            
+
             if (allQuestions.length === 0) {
                 questionsContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">No questions available. Create questions first.</div>';
                 return;
@@ -273,7 +357,7 @@ async function loadAvailableQuestions() {
 // Render questions
 function renderQuestions(questions) {
     const questionsContainer = document.getElementById('availableQuestions');
-    
+
     questionsContainer.innerHTML = questions.map(q => `
         <div class="question-item ${selectedQuestions.has(q.id) ? 'selected' : ''}" onclick="toggleQuestionSelection(${q.id})">
             <input type="checkbox" ${selectedQuestions.has(q.id) ? 'checked' : ''} onclick="event.stopPropagation(); toggleQuestionSelection(${q.id})">
@@ -300,7 +384,7 @@ function toggleQuestionSelection(questionId) {
 // Search questions
 document.getElementById('questionSearch').addEventListener('input', (e) => {
     const searchTerm = e.target.value.toLowerCase();
-    const filtered = allQuestions.filter(q => 
+    const filtered = allQuestions.filter(q =>
         q.question_text.toLowerCase().includes(searchTerm) ||
         (q.topic && q.topic.toLowerCase().includes(searchTerm))
     );
@@ -383,11 +467,21 @@ async function removeQuestionFromExam(examId, questionId) {
     }
 }
 
-// Toggle exam active status
-async function toggleExamStatus(examId, currentStatus) {
-    const token = localStorage.getItem('token');
-    const newStatus = currentStatus ? 0 : 1;
+// Start Exam Immediately
+async function startExamNow(examId) {
+    if (!confirm('Start this exam now? Candidates will be able to take it immediately.')) return;
+    updateExamStatus(examId, 'started', 1);
+}
 
+// Stop Exam
+async function stopExam(examId) {
+    if (!confirm('Stop this exam? Active candidates might be interrupted and new candidates cannot join.')) return;
+    updateExamStatus(examId, 'stopped', 0);
+}
+
+// Update status helper
+async function updateExamStatus(examId, status, isActive) {
+    const token = localStorage.getItem('token');
     try {
         const response = await fetch(`${API_URL}/admin/exams/${examId}`, {
             method: 'PUT',
@@ -395,15 +489,13 @@ async function toggleExamStatus(examId, currentStatus) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ is_active: newStatus })
+            body: JSON.stringify({ is_active: isActive, status: status })
         });
 
-        const data = await response.json();
-
         if (response.ok) {
-            alert(`Exam ${newStatus ? 'activated' : 'deactivated'} successfully`);
             loadExams();
         } else {
+            const data = await response.json();
             alert(data.message || 'Failed to update exam status');
         }
     } catch (error) {
@@ -411,6 +503,93 @@ async function toggleExamStatus(examId, currentStatus) {
         alert('Failed to update exam status');
     }
 }
+
+// Show Schedule Modal
+function showScheduleModal(examId) {
+    document.getElementById('scheduleExamId').value = examId;
+
+    // Set min date to now
+    const now = new Date();
+    const tzOffset = now.getTimezoneOffset() * 60000; // offset in milliseconds
+    const localISOTime = (new Date(now.getTime() - tzOffset)).toISOString();
+    const dateString = localISOTime.split('T')[0];
+    const timeString = localISOTime.split('T')[1].substring(0, 5);
+
+    document.getElementById('scheduleStartDate').min = dateString;
+    document.getElementById('scheduleEndDate').min = dateString;
+
+    document.getElementById('scheduleStartDate').value = dateString;
+    document.getElementById('scheduleStartTime').value = timeString;
+
+    document.getElementById('scheduleEndDate').value = dateString;
+    // Add an hour for the end time default
+    const later = new Date(now.getTime() + 60 * 60 * 1000 - tzOffset).toISOString().split('T')[1].substring(0, 5);
+    document.getElementById('scheduleEndTime').value = later;
+
+
+    document.getElementById('scheduleExamModal').style.display = 'block';
+}
+
+function closeScheduleExamModal() {
+    document.getElementById('scheduleExamModal').style.display = 'none';
+}
+
+// Handle schedule submission
+document.getElementById('scheduleExamForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const examId = document.getElementById('scheduleExamId').value;
+
+    const startDate = document.getElementById('scheduleStartDate').value;
+    const startTime = document.getElementById('scheduleStartTime').value;
+    const endDate = document.getElementById('scheduleEndDate').value;
+    const endTime = document.getElementById('scheduleEndTime').value;
+
+    if (!startDate || !startTime || !endDate || !endTime) {
+        alert('Please select both Date and Time for Start and End times.');
+        return;
+    }
+
+    const scheduleStart = `${startDate}T${startTime}`;
+    const scheduleEnd = `${endDate}T${endTime}`;
+
+    if (new Date(scheduleStart) >= new Date(scheduleEnd)) {
+        alert('End time must be after Start time');
+        return;
+    }
+
+    // Convert local to UTC ISO string to store in backend safely
+    const startIso = new Date(scheduleStart).toISOString();
+    const endIso = new Date(scheduleEnd).toISOString();
+
+    const token = localStorage.getItem('token');
+    try {
+        const response = await fetch(`${API_URL}/admin/exams/${examId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                status: 'scheduled',
+                is_active: 1,
+                scheduled_start: startIso,
+                scheduled_end: endIso
+            })
+        });
+
+        if (response.ok) {
+            alert('Exam scheduled successfully!');
+            closeScheduleExamModal();
+            loadExams();
+        } else {
+            const data = await response.json();
+            alert(data.message || 'Failed to schedule exam');
+        }
+    } catch (error) {
+        console.error('Error scheduling:', error);
+        alert('Failed to schedule exam');
+    }
+});
 
 // Delete exam
 async function deleteExam(examId) {
@@ -443,11 +622,12 @@ async function deleteExam(examId) {
 }
 
 // Close modals when clicking outside
-window.onclick = function(event) {
+window.onclick = function (event) {
     const createModal = document.getElementById('createExamModal');
     const addQuestionsModal = document.getElementById('addQuestionsModal');
     const viewModal = document.getElementById('viewExamModal');
-    
+    const scheduleModal = document.getElementById('scheduleExamModal');
+
     if (event.target === createModal) {
         closeCreateExamModal();
     }
@@ -456,5 +636,8 @@ window.onclick = function(event) {
     }
     if (event.target === viewModal) {
         closeViewExamModal();
+    }
+    if (event.target === scheduleModal) {
+        closeScheduleExamModal();
     }
 }
