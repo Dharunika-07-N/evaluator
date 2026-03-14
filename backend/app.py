@@ -968,11 +968,14 @@ def manage_exams(current_user):
             description = data.get('description', '')
             duration = data['duration']  # in minutes
             total_marks = data['total_marks']
+            status = data.get('status', 'draft')
+            scheduled_start = data.get('scheduled_start')
+            scheduled_end = data.get('scheduled_end')
             
             cursor.execute('''
-                INSERT INTO exams (title, description, duration, total_marks, created_by)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (title, description, duration, total_marks, current_user['id']))
+                INSERT INTO exams (title, description, duration, total_marks, created_by, status, scheduled_start, scheduled_end)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (title, description, duration, total_marks, current_user['id'], status, scheduled_start, scheduled_end))
             
             conn.commit()
             exam_id = cursor.lastrowid
@@ -1042,7 +1045,7 @@ def manage_exam_detail(current_user, exam_id):
             updates = []
             params = []
             
-            fields = ['title', 'description', 'duration', 'total_marks', 'is_active']
+            fields = ['title', 'description', 'duration', 'total_marks', 'is_active', 'status', 'scheduled_start', 'scheduled_end']
             
             for field in fields:
                 if field in data:
@@ -1147,7 +1150,7 @@ def get_available_exams(current_user):
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT e.id, e.title, e.description, e.duration, e.total_marks,
+            SELECT e.id, e.title, e.description, e.duration, e.total_marks, e.status, e.scheduled_start, e.scheduled_end,
                    (SELECT COUNT(*) FROM exam_questions WHERE exam_id = e.id) as question_count
             FROM exams e
             WHERE e.is_active = 1
@@ -1155,8 +1158,30 @@ def get_available_exams(current_user):
         ''')
         
         exams = []
+        now = datetime.now()
         for row in cursor.fetchall():
-            exams.append(dict(row))
+            exam = dict(row)
+            status = exam.get('status')
+            
+            if status == 'started':
+                exams.append(exam)
+            elif status == 'scheduled':
+                try:
+                    start_time = datetime.fromisoformat(exam.get('scheduled_start', '').replace('Z', '+00:00')) if exam.get('scheduled_start') else None
+                    end_time = datetime.fromisoformat(exam.get('scheduled_end', '').replace('Z', '+00:00')) if exam.get('scheduled_end') else None
+                    
+                    if start_time and end_time:
+                        # Normalize now for comparison
+                        if start_time.tzinfo:
+                            now_aware = datetime.now(start_time.tzinfo)
+                            if start_time <= now_aware <= end_time:
+                                exams.append(exam)
+                        else:
+                            if start_time <= now <= end_time:
+                                exams.append(exam)
+                except Exception as e:
+                    print(f"Time parse error: {e}")
+                    pass
         
         conn.close()
         return jsonify({'exams': exams}), 200
@@ -1177,7 +1202,7 @@ def get_exam_for_candidate(current_user, exam_id):
         
         # Get exam details
         cursor.execute('''
-            SELECT id, title, description, duration, total_marks
+            SELECT id, title, description, duration, total_marks, status, scheduled_start, scheduled_end
             FROM exams
             WHERE id = ? AND is_active = 1
         ''', (exam_id,))
@@ -1189,6 +1214,29 @@ def get_exam_for_candidate(current_user, exam_id):
             return jsonify({'message': 'Exam not found or not active'}), 404
         
         exam = dict(exam_row)
+        
+        # Determine if it can be taken
+        status = exam.get('status')
+        can_take = False
+        if status == 'started':
+            can_take = True
+        elif status == 'scheduled':
+            try:
+                start_time = datetime.fromisoformat(exam.get('scheduled_start', '').replace('Z', '+00:00')) if exam.get('scheduled_start') else None
+                end_time = datetime.fromisoformat(exam.get('scheduled_end', '').replace('Z', '+00:00')) if exam.get('scheduled_end') else None
+                if start_time and end_time:
+                    now = datetime.now()
+                    if start_time.tzinfo:
+                        now = datetime.now(start_time.tzinfo)
+                    if start_time <= now <= end_time:
+                        can_take = True
+            except:
+                pass
+                
+        if not can_take:
+            conn.close()
+            return jsonify({'message': 'Exam is not currently active for candidates'}), 403
+
         
         # Get questions for this exam (without correct answers for security)
         cursor.execute('''
