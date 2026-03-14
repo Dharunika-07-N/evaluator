@@ -1,7 +1,7 @@
 const API_URL = 'http://localhost:5001/api';
 
 // Check authentication on page load
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     checkAuth();
     loadQuestions();
     setupEventListeners();
@@ -11,28 +11,28 @@ function checkAuth() {
     const token = localStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const role = (user.role || '').toLowerCase();
-    
+
     if (!token || !user.role) {
         window.location.href = 'login.html';
         return;
     }
-    
+
     // Check if user is admin
     if (role !== 'admin') {
         alert('Access denied. This page is for administrators only.');
         window.location.href = 'profile.html';
         return;
     }
-    
+
     document.getElementById('adminName').textContent = user.fullname;
 }
 
 function setupEventListeners() {
     // Generate questions form
     document.getElementById('generateForm').addEventListener('submit', handleGenerateQuestions);
-    
+
     // Manual form toggle
-    document.getElementById('toggleManualForm').addEventListener('click', function() {
+    document.getElementById('toggleManualForm').addEventListener('click', function () {
         const form = document.getElementById('manualForm');
         if (form.style.display === 'none') {
             form.style.display = 'block';
@@ -42,34 +42,34 @@ function setupEventListeners() {
             this.textContent = 'Show Manual Entry Form';
         }
     });
-    
+
     // Manual form submit
     document.getElementById('manualForm').addEventListener('submit', handleManualQuestion);
-    
+
     // Cancel manual form
-    document.getElementById('cancelManual').addEventListener('click', function() {
+    document.getElementById('cancelManual').addEventListener('click', function () {
         document.getElementById('manualForm').reset();
         document.getElementById('manualForm').style.display = 'none';
         document.getElementById('toggleManualForm').textContent = 'Show Manual Entry Form';
     });
-    
+
     // Search filter
     document.getElementById('searchTopic').addEventListener('input', filterQuestions);
 }
 
 async function handleGenerateQuestions(e) {
     e.preventDefault();
-    
+
     const statusDiv = document.getElementById('generateStatus');
     statusDiv.className = 'status-message info';
     statusDiv.textContent = 'Generating questions... This may take a moment.';
-    
+
     const formData = {
         url: document.getElementById('url').value,
         topic: document.getElementById('topic').value,
         num_questions: document.getElementById('numQuestions').value
     };
-    
+
     try {
         const response = await fetch(`${API_URL}/admin/generate-questions`, {
             method: 'POST',
@@ -79,9 +79,9 @@ async function handleGenerateQuestions(e) {
             },
             body: JSON.stringify(formData)
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             statusDiv.className = 'status-message success';
             statusDiv.textContent = data.message;
@@ -100,11 +100,11 @@ async function handleGenerateQuestions(e) {
 
 async function handleManualQuestion(e) {
     e.preventDefault();
-    
+
     const statusDiv = document.getElementById('manualStatus');
     statusDiv.className = 'status-message info';
     statusDiv.textContent = 'Adding question...';
-    
+
     const formData = {
         question_text: document.getElementById('manualQuestion').value,
         topic: document.getElementById('manualTopic').value,
@@ -114,7 +114,7 @@ async function handleManualQuestion(e) {
         option_d: document.getElementById('optionD').value,
         correct_answer: document.getElementById('correctAnswer').value
     };
-    
+
     try {
         const response = await fetch(`${API_URL}/admin/questions`, {
             method: 'POST',
@@ -124,15 +124,15 @@ async function handleManualQuestion(e) {
             },
             body: JSON.stringify(formData)
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             statusDiv.className = 'status-message success';
             statusDiv.textContent = data.message;
             document.getElementById('manualForm').reset();
             loadQuestions(); // Reload questions list
-            
+
             // Hide form after success
             setTimeout(() => {
                 document.getElementById('manualForm').style.display = 'none';
@@ -153,16 +153,16 @@ async function handleManualQuestion(e) {
 async function loadQuestions() {
     const questionsList = document.getElementById('questionsList');
     questionsList.innerHTML = '<p class="loading">Loading questions...</p>';
-    
+
     try {
         const response = await fetch(`${API_URL}/admin/questions`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             displayQuestions(data.questions);
         } else {
@@ -176,12 +176,12 @@ async function loadQuestions() {
 
 function displayQuestions(questions) {
     const questionsList = document.getElementById('questionsList');
-    
+
     if (!questions || questions.length === 0) {
         questionsList.innerHTML = '<p class="no-questions">No questions found. Generate or add questions to get started!</p>';
         return;
     }
-    
+
     questionsList.innerHTML = questions.map(q => `
         <div class="question-card" data-id="${q.id}" data-topic="${q.topic}">
             <div class="question-header">
@@ -217,7 +217,7 @@ function displayQuestions(questions) {
 function filterQuestions() {
     const searchTerm = document.getElementById('searchTopic').value.toLowerCase();
     const questionCards = document.querySelectorAll('.question-card');
-    
+
     questionCards.forEach(card => {
         const topic = card.dataset.topic.toLowerCase();
         if (topic.includes(searchTerm)) {
@@ -230,12 +230,12 @@ function filterQuestions() {
 
 function editQuestion(questionId) {
     const card = document.querySelector(`.question-card[data-id="${questionId}"]`);
-    
+
     // Get current values
     const questionText = card.querySelector('.question-text').textContent;
     const topic = card.querySelector('.question-topic').textContent;
     const options = card.querySelectorAll('.option');
-    
+
     // Create edit form (replace card content)
     card.innerHTML = `
         <form class="edit-form" onsubmit="saveEdit(event, ${questionId})">
@@ -282,10 +282,10 @@ function editQuestion(questionId) {
 
 async function saveEdit(event, questionId) {
     event.preventDefault();
-    
+
     const formData = new FormData(event.target);
     const data = Object.fromEntries(formData);
-    
+
     try {
         const response = await fetch(`${API_URL}/admin/questions/${questionId}`, {
             method: 'PUT',
@@ -295,7 +295,7 @@ async function saveEdit(event, questionId) {
             },
             body: JSON.stringify(data)
         });
-        
+
         if (response.ok) {
             loadQuestions(); // Reload questions
         } else {
@@ -311,7 +311,7 @@ async function deleteQuestion(questionId) {
     if (!confirm('Are you sure you want to delete this question?')) {
         return;
     }
-    
+
     try {
         const response = await fetch(`${API_URL}/admin/questions/${questionId}`, {
             method: 'DELETE',
@@ -319,7 +319,7 @@ async function deleteQuestion(questionId) {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
-        
+
         if (response.ok) {
             loadQuestions(); // Reload questions
         } else {
@@ -327,6 +327,32 @@ async function deleteQuestion(questionId) {
         }
     } catch (error) {
         alert('Error deleting question');
+        console.error('Error:', error);
+    }
+}
+
+async function deleteAllQuestions() {
+    if (!confirm('Are you sure you want to delete ALL generated questions? This action cannot be undone.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/admin/questions`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        if (response.ok) {
+            alert('All questions deleted successfully');
+            loadQuestions(); // Reload questions list
+        } else {
+            const data = await response.json();
+            alert(data.message || 'Failed to delete all questions');
+        }
+    } catch (error) {
+        alert('Error deleting all questions');
         console.error('Error:', error);
     }
 }
