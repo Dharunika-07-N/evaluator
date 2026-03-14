@@ -5,13 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Online Exam System</title>
     <link rel="stylesheet" href="css/admin-results.css">
+    <link rel="stylesheet" href="css/admin-nav.css">
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>📊 Admin Dashboard</h1>
-            <button onclick="goToProfile()" class="btn btn-secondary">Settings</button>
+    <nav class="admin-navbar">
+        <div class="admin-nav-content">
+            <a href="admin-results.html" class="admin-nav-brand">📊 Admin System</a>
+            <div class="admin-nav-links">
+                <a href="admin-results.html" class="admin-nav-link">Results</a>
+                <a href="exam-management.html" class="admin-nav-link">Exams</a>
+                <a href="mcq-management.html" class="admin-nav-link">MCQs</a>
+                <a href="question-upload.html" class="admin-nav-link">Bulk Upload</a>
+                <a href="profile.html" class="admin-nav-link">Settings</a>
+            </div>
+            <div class="admin-nav-right">
+                <span class="admin-role-badge">Admin</span>
+                <button class="btn-logout-nav" onclick="logout()">Logout</button>
+            </div>
         </div>
+    </nav>
+    <div class="container">
+
 
         <div class="filters">
             <input type="text" id="searchInput" placeholder="Search by candidate name or email...">
@@ -86,6 +100,7 @@
         </div>
     </div>
 
+    <script src="js/admin-nav.js"></script>
     <script src="js/admin-results.js"></script>
 </body>
 </html>

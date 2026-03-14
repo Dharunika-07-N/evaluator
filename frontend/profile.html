@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings - Online Exam System</title>
     <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="css/admin-nav.css">
 </head>
+
 <body>
-    <nav class="navbar">
+    <!-- Default Navbar (Candidates & Others) -->
+    <nav id="defaultNavbar" class="navbar">
         <div class="nav-content">
             <h2 class="nav-title">Online Exam System</h2>
             <div class="nav-right">
@@ -17,30 +21,23 @@
         </div>
     </nav>
 
-    <!-- Admin Menu - Only visible for Admin role -->
-    <div id="adminMenu" class="admin-menu" style="display: none;">
-        <div class="admin-menu-content">
-            <h3>Admin Dashboard</h3>
-            <div class="admin-links">
-                <a href="mcq-management.html" class="admin-link">
-                    <span class="link-icon">📝</span>
-                    <span class="link-text">MCQ Management</span>
-                </a>
-                <a href="question-upload.html" class="admin-link">
-                    <span class="link-icon">📤</span>
-                    <span class="link-text">Upload Questions</span>
-                </a>
-                <a href="exam-management.html" class="admin-link">
-                    <span class="link-icon">📋</span>
-                    <span class="link-text">Exam Management</span>
-                </a>
-                <a href="admin-results.html" class="admin-link">
-                    <span class="link-icon">📊</span>
-                    <span class="link-text">View Results</span>
-                </a>
+    <!-- Admin Navbar -->
+    <nav id="newAdminNav" class="admin-navbar" style="display: none;">
+        <div class="admin-nav-content">
+            <a href="admin-results.html" class="admin-nav-brand">📊 Admin System</a>
+            <div class="admin-nav-links">
+                <a href="admin-results.html" class="admin-nav-link">Results</a>
+                <a href="exam-management.html" class="admin-nav-link">Exams</a>
+                <a href="mcq-management.html" class="admin-nav-link">MCQs</a>
+                <a href="question-upload.html" class="admin-nav-link">Bulk Upload</a>
+                <a href="profile.html" class="admin-nav-link">Settings</a>
+            </div>
+            <div class="admin-nav-right">
+                <span class="admin-role-badge">Admin</span>
+                <button class="btn-logout-nav" onclick="logout()">Logout</button>
             </div>
         </div>
-    </div>
+    </nav>
 
     <!-- Candidate Menu - Only visible for Candidate role -->
     <div id="candidateMenu" class="candidate-menu" style="display: none;">
@@ -66,72 +63,77 @@
                 <h2>Personal Information</h2>
                 <p class="subtitle">View and edit your profile details</p>
             </div>
-            
+
             <div id="message" class="message"></div>
-            
+
             <form id="profileForm">
                 <div class="form-group">
                     <label for="fullname">Full Name</label>
                     <input type="text" id="fullname" name="fullname" placeholder="Enter your full name" required>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="email">Email Address</label>
                     <input type="email" id="email" name="email" placeholder="Enter your email" readonly>
                     <small>Email cannot be changed</small>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="role">Role</label>
                     <input type="text" id="role" name="role" readonly>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="phone">Phone Number</label>
                     <input type="tel" id="phone" name="phone" placeholder="Enter your phone number">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="address">Address</label>
                     <textarea id="address" name="address" placeholder="Enter your address" rows="3"></textarea>
                 </div>
-                
+
                 <div class="form-actions">
                     <button type="submit" class="btn-submit">Save Changes</button>
                     <button type="button" class="btn-cancel" onclick="resetForm()">Cancel</button>
                 </div>
             </form>
         </div>
-        
+
         <div class="profile-card">
             <div class="card-header">
                 <h2>Change Password</h2>
                 <p class="subtitle">Update your password</p>
             </div>
-            
+
             <div id="passwordMessage" class="message"></div>
-            
+
             <form id="passwordForm">
                 <div class="form-group">
                     <label for="currentPassword">Current Password</label>
-                    <input type="password" id="currentPassword" name="currentPassword" placeholder="Enter current password" required>
+                    <input type="password" id="currentPassword" name="currentPassword"
+                        placeholder="Enter current password" required>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="newPassword">New Password</label>
-                    <input type="password" id="newPassword" name="newPassword" placeholder="Enter new password" required>
+                    <input type="password" id="newPassword" name="newPassword" placeholder="Enter new password"
+                        required>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="confirmNewPassword">Confirm New Password</label>
-                    <input type="password" id="confirmNewPassword" name="confirmNewPassword" placeholder="Confirm new password" required>
+                    <input type="password" id="confirmNewPassword" name="confirmNewPassword"
+                        placeholder="Confirm new password" required>
                 </div>
-                
+
                 <button type="submit" class="btn-submit">Update Password</button>
             </form>
         </div>
     </div>
-    
+
+    <script src="js/admin-nav.js"></script>
     <script src="js/profile.js"></script>
 </body>
+
 </html>

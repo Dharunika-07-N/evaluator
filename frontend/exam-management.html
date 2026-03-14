@@ -1,17 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Exam Management - Admin</title>
     <link rel="stylesheet" href="css/exam-management.css">
+    <link rel="stylesheet" href="css/admin-nav.css">
 </head>
+
 <body>
+    <nav class="admin-navbar">
+        <div class="admin-nav-content">
+            <a href="admin-results.html" class="admin-nav-brand">📊 Admin System</a>
+            <div class="admin-nav-links">
+                <a href="admin-results.html" class="admin-nav-link">Results</a>
+                <a href="exam-management.html" class="admin-nav-link">Exams</a>
+                <a href="mcq-management.html" class="admin-nav-link">MCQs</a>
+                <a href="question-upload.html" class="admin-nav-link">Bulk Upload</a>
+                <a href="profile.html" class="admin-nav-link">Settings</a>
+            </div>
+            <div class="admin-nav-right">
+                <span class="admin-role-badge">Admin</span>
+                <button class="btn-logout-nav" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </nav>
     <div class="container">
         <div class="header">
             <h1>Exam Management</h1>
             <div class="header-actions">
-                <button class="btn-secondary" onclick="window.location.href='profile.html'">Back to Profile</button>
                 <button class="btn-primary" onclick="showCreateExamModal()">Create New Exam</button>
             </div>
         </div>
@@ -76,7 +94,8 @@
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn-secondary" onclick="closeAddQuestionsModal()">Cancel</button>
-                <button type="button" class="btn-primary" onclick="saveSelectedQuestions()">Add Selected Questions</button>
+                <button type="button" class="btn-primary" onclick="saveSelectedQuestions()">Add Selected
+                    Questions</button>
             </div>
         </div>
     </div>
@@ -94,6 +113,8 @@
         </div>
     </div>
 
+    <script src="js/admin-nav.js"></script>
     <script src="js/exam-management.js"></script>
 </body>
+
 </html>

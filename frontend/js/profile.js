@@ -18,14 +18,17 @@ function loadUserData() {
 
     // Display user role
     document.getElementById('userRole').textContent = user.role;
-    
+
     // Show admin menu if user is admin
     if (normalizedRole === 'admin') {
-        document.getElementById('adminMenu').style.display = 'block';
+        const adminNav = document.getElementById('newAdminNav');
+        const defaultNav = document.getElementById('defaultNavbar');
+        if (adminNav) adminNav.style.display = 'block';
+        if (defaultNav) defaultNav.style.display = 'none';
     } else if (normalizedRole === 'candidate') {
         document.getElementById('candidateMenu').style.display = 'block';
     }
-    
+
     // Populate form fields
     document.getElementById('fullname').value = user.fullname || '';
     document.getElementById('email').value = user.email || '';
@@ -37,11 +40,11 @@ function loadUserData() {
 // Handle profile update
 document.getElementById('profileForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const fullname = document.getElementById('fullname').value;
     const phone = document.getElementById('phone').value;
     const address = document.getElementById('address').value;
-    
+
     try {
         const response = await fetch(`${API_URL}/auth/update-profile`, {
             method: 'PUT',
@@ -55,16 +58,16 @@ document.getElementById('profileForm').addEventListener('submit', async (e) => {
                 address
             })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             // Update localStorage with new data
             const updatedUser = { ...user, fullname, phone, address };
             localStorage.setItem('user', JSON.stringify(updatedUser));
-            
+
             showMessage('Profile updated successfully!', 'success');
-            
+
             // Reload user data
             setTimeout(() => {
                 location.reload();
@@ -81,22 +84,22 @@ document.getElementById('profileForm').addEventListener('submit', async (e) => {
 // Handle password change
 document.getElementById('passwordForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const currentPassword = document.getElementById('currentPassword').value;
     const newPassword = document.getElementById('newPassword').value;
     const confirmNewPassword = document.getElementById('confirmNewPassword').value;
-    
+
     // Validation
     if (newPassword !== confirmNewPassword) {
         showPasswordMessage('New passwords do not match!', 'error');
         return;
     }
-    
+
     if (newPassword.length < 6) {
         showPasswordMessage('Password must be at least 6 characters long!', 'error');
         return;
     }
-    
+
     try {
         const response = await fetch(`${API_URL}/auth/change-password`, {
             method: 'PUT',
@@ -109,9 +112,9 @@ document.getElementById('passwordForm').addEventListener('submit', async (e) => 
                 newPassword
             })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             showPasswordMessage('Password changed successfully!', 'success');
             document.getElementById('passwordForm').reset();
@@ -142,7 +145,7 @@ function showMessage(message, type) {
     const messageDiv = document.getElementById('message');
     messageDiv.textContent = message;
     messageDiv.className = `message ${type}`;
-    
+
     setTimeout(() => {
         messageDiv.style.display = 'none';
     }, 5000);
@@ -152,7 +155,7 @@ function showPasswordMessage(message, type) {
     const messageDiv = document.getElementById('passwordMessage');
     messageDiv.textContent = message;
     messageDiv.className = `message ${type}`;
-    
+
     setTimeout(() => {
         messageDiv.style.display = 'none';
     }, 5000);

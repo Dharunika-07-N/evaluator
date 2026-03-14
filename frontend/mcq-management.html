@@ -1,21 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MCQ Management - Admin</title>
     <link rel="stylesheet" href="css/mcq-management.css">
+    <link rel="stylesheet" href="css/admin-nav.css">
 </head>
+
 <body>
+    <nav class="admin-navbar">
+        <div class="admin-nav-content">
+            <a href="admin-results.html" class="admin-nav-brand">📊 Admin System</a>
+            <div class="admin-nav-links">
+                <a href="admin-results.html" class="admin-nav-link">Results</a>
+                <a href="exam-management.html" class="admin-nav-link">Exams</a>
+                <a href="mcq-management.html" class="admin-nav-link">MCQs</a>
+                <a href="question-upload.html" class="admin-nav-link">Bulk Upload</a>
+                <a href="profile.html" class="admin-nav-link">Settings</a>
+            </div>
+            <div class="admin-nav-right">
+                <span class="admin-role-badge">Admin</span>
+                <button class="btn-logout-nav" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </nav>
     <div class="container">
         <header>
             <h1>MCQ Question Management</h1>
-            <div class="header-actions">
-                <span id="adminName"></span>
-                <a href="question-upload.html" class="btn-secondary">Upload Questions</a>
-                <a href="profile.html" class="btn-secondary">Back to Profile</a>
-                <button onclick="logout()" class="btn-secondary">Logout</button>
-            </div>
         </header>
 
         <div class="content">
@@ -103,6 +116,8 @@
         </div>
     </div>
 
+    <script src="js/admin-nav.js"></script>
     <script src="js/mcq-management.js"></script>
 </body>
+
 </html>
