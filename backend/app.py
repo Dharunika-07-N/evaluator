@@ -83,6 +83,9 @@ def init_db():
             description TEXT,
             duration INTEGER NOT NULL,
             total_marks INTEGER NOT NULL,
+            status TEXT DEFAULT 'draft',
+            scheduled_start TIMESTAMP,
+            scheduled_end TIMESTAMP,
             created_by INTEGER NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             is_active INTEGER DEFAULT 1,
@@ -1042,6 +1045,7 @@ def manage_exams(current_user):
         elif request.method == 'POST':
             # Create new exam
             data = request.get_json()
+            print(f"DEBUG: Creating exam with data: {data}")
             
             # Validate required fields
             required_fields = ['title', 'duration', 'total_marks']
