@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Exam Management - Admin</title>
-    <link rel="stylesheet" href="css/exam-management.css">
+    <link rel="stylesheet" href="css/exam-management.css?v=2">
     <link rel="stylesheet" href="css/admin-nav.css">
 </head>
 
@@ -69,6 +69,48 @@
                         <input type="number" id="examMarks" min="1" required>
                     </div>
                 </div>
+
+                <div class="form-group">
+                    <label>Exam Type *</label>
+                    <div style="display: flex; gap: 20px; align-items: center;">
+                        <label style="font-weight: normal; cursor: pointer;">
+                            <input type="radio" name="createExamType" value="instant" checked
+                                onchange="toggleCreateScheduleInputs()">
+                            Create as Draft (Start Later)
+                        </label>
+                        <label style="font-weight: normal; cursor: pointer;">
+                            <input type="radio" name="createExamType" value="started"
+                                onchange="toggleCreateScheduleInputs()">
+                            Start Immediately
+                        </label>
+                        <label style="font-weight: normal; cursor: pointer;">
+                            <input type="radio" name="createExamType" value="scheduled"
+                                onchange="toggleCreateScheduleInputs()">
+                            Schedule for Later
+                        </label>
+                    </div>
+                </div>
+
+                <div id="createScheduleInputs"
+                    style="display: none; background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #eee;">
+                    <div class="form-row">
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label>Start Date & Time *</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="date" id="createScheduleStartDate">
+                                <input type="time" id="createScheduleStartTime">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>End Date & Time *</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="date" id="createScheduleEndDate">
+                                <input type="time" id="createScheduleEndTime">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary" onclick="closeCreateExamModal()">Cancel</button>
                     <button type="submit" class="btn-primary">Create Exam</button>
@@ -113,8 +155,39 @@
         </div>
     </div>
 
+    <!-- Schedule Exam Modal -->
+    <div id="scheduleExamModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Schedule Exam</h2>
+                <span class="close" onclick="closeScheduleExamModal()">&times;</span>
+            </div>
+            <form id="scheduleExamForm">
+                <input type="hidden" id="scheduleExamId">
+                <div class="form-group">
+                    <label>Start Date & Time *</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="date" id="scheduleStartDate" required>
+                        <input type="time" id="scheduleStartTime" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>End Date & Time *</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="date" id="scheduleEndDate" required>
+                        <input type="time" id="scheduleEndTime" required>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeScheduleExamModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Schedule</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="js/admin-nav.js"></script>
-    <script src="js/exam-management.js"></script>
+    <script src="js/exam-management.js?v=2"></script>
 </body>
 
 </html>
