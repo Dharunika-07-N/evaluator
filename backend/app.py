@@ -10,6 +10,17 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import random
+import google.generativeai as genai
+from dotenv import load_dotenv
+import json
+
+# Load environment variables
+load_dotenv()
+
+# Configure Gemini AI
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 app = Flask(__name__)
 CORS(app)
@@ -359,27 +370,37 @@ def change_password(current_user):
         return jsonify({'message': 'Internal server error'}), 500
 
 # Helper functions for web scraping and question generation
-def scrape_content(url):
-    """Scrape text content from a URL"""
+def get_url_soup(url):
+    """Fetch a URL and return a BeautifulSoup object."""
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
+        return BeautifulSoup(response.content, 'lxml')
+    except Exception as e:
+        print(f"Fetch error: {str(e)}")
+        return None
+
+def scrape_content(url, soup=None):
+    """Scrape text content from a URL or pre-fetched soup object"""
+    try:
+        if not soup:
+            soup = get_url_soup(url)
+        if not soup:
+            return None
         
-        soup = BeautifulSoup(response.content, 'lxml')
+        # Clone soup to avoid modifying original if needed elsewhere
+        s = BeautifulSoup(str(soup), 'lxml')
         
         # Remove script and style elements
-        for script in soup(["script", "style", "nav", "footer", "header"]):
+        for script in s(["script", "style", "nav", "footer", "header"]):
             script.decompose()
         
         # Get text and clean it
-        text = soup.get_text(separator=' ', strip=True)
-        
-        # Clean up whitespace
+        text = s.get_text(separator=' ', strip=True)
         text = re.sub(r'\s+', ' ', text).strip()
-        
         return text
     except Exception as e:
         print(f"Scraping error: {str(e)}")
@@ -392,16 +413,13 @@ def normalize_text(value, max_len=None):
         text = text[:max_len].rsplit(' ', 1)[0].strip() + '...'
     return text
 
-def scrape_qa_pairs(url):
+def scrape_qa_pairs(url, soup=None):
     """Scrape structured question-answer pairs from a webpage when available."""
     try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.content, 'lxml')
+        if not soup:
+            soup = get_url_soup(url)
+        if not soup:
+            return []
 
         # Remove non-content areas
         for tag in soup(["script", "style", "nav", "footer", "header", "noscript"]):
@@ -509,15 +527,18 @@ def generate_mcq_from_text(text, topic, num_questions=5):
         # Split and clean sentences
         raw_sentences = re.split(r'[.!?]+', text)
         sentences = [re.sub(r'\s+', ' ', s).strip() for s in raw_sentences]
-        sentences = [s for s in sentences if 35 <= len(s) <= 280]
+        # Only keep sentences that look like they contain information (not too short, not too long)
+        sentences = [s for s in sentences if 30 <= len(s) <= 400]
 
         if not sentences:
             return []
 
         # 1) Extract concept-definition facts
         definition_patterns = [
-            r'^(?P<term>[A-Z][A-Za-z0-9\-\s]{2,70}?)\s+(?:is|are|refers to|means|is defined as)\s+(?P<definition>.+)$',
-            r'^(?P<term>[A-Za-z][A-Za-z0-9\-\s]{2,70}?)\s+(?:consists of|includes)\s+(?P<definition>.+)$'
+            r'^(?P<term>[A-Z][A-Za-z0-9\-\s]{2,70}?)\s+(?:is|are|refers to|means|is defined as|stands for)\s+(?P<definition>.+)$',
+            r'^(?P<term>[A-Za-z][A-Za-z0-9\-\s]{2,70}?)\s+(?:consists of|includes|comprises)\s+(?P<definition>.+)$',
+            r'^(?P<term>[A-Z][A-Za-z0-9\-\s]{2,70}?)\s*:\s*(?P<definition>.+)$',
+            r'^(?P<term>[A-Z][A-Za-z0-9\-\s]{2,70}?)\s*-\s*(?P<definition>.+)$'
         ]
 
         facts = []
@@ -546,7 +567,7 @@ def generate_mcq_from_text(text, topic, num_questions=5):
         usage_facts = []
         usage_seen = set()
         usage_pattern = re.compile(
-            r'^(?P<term>[A-Za-z][A-Za-z0-9\-\s]{2,70}?)\s+(?:is|are)\s+used\s+for\s+(?P<uses>.+)$',
+            r'^(?P<term>[A-Za-z][A-Za-z0-9\-\s]{2,70}?)\s+(?:is|are)\s+(?:used\s+for|useful\s+for|designed\s+to|provides|enables|allows)\s+(?P<uses>.+)$',
             flags=re.IGNORECASE
         )
 
@@ -670,6 +691,53 @@ def generate_mcq_from_text(text, topic, num_questions=5):
         print(f"Question generation error: {str(e)}")
         return []
 
+def generate_mcq_with_ai(text, topic, num_questions=5):
+    """Generate high-quality logical MCQs using Gemini AI."""
+    if not GEMINI_API_KEY:
+        return None
+
+    try:
+        # Use gemini-1.5-flash for much faster generation speed
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        prompt = f"""
+        Act as an expert professor. Generate {num_questions} multiple choice questions (MCQs) based on the following text.
+        The topic is: {topic}.
+        
+        Requirements:
+        1. Each question must be logical and test understanding, not just rote memorization.
+        2. Provide 4 options (A, B, C, D) for each question.
+        3. Options must be plausible distractors related to the topic.
+        4. Return the output ONLY as a valid JSON array of objects.
+        5. Each object must have these exactly named keys: 
+           "question_text", "option_a", "option_b", "option_c", "option_d", "correct_answer"
+        6. "correct_answer" must be a single letter: "A", "B", "C", or "D".
+        
+        Text to analyze:
+        {text[:4000]} 
+        """
+        
+        response = model.generate_content(prompt)
+        content = response.text.strip()
+        
+        # Clean up possible markdown code blocks in the response
+        if content.startswith("```"):
+            lines = content.split('\n')
+            content = '\n'.join(lines[1:-1]) if lines[0].startswith("```") and lines[-1].startswith("```") else content
+        
+        # Parse JSON
+        questions = json.loads(content)
+        
+        # Add topic to each question
+        for q in questions:
+            q['topic'] = topic
+            
+        return questions[:num_questions]
+        
+    except Exception as e:
+        print(f"Gemini AI error: {str(e)}")
+        return None
+
 # Admin MCQ Management Routes
 @app.route('/api/admin/generate-questions', methods=['POST'])
 @token_required
@@ -692,21 +760,29 @@ def generate_questions(current_user):
 
         # Get content either from URL or direct text
         if 'url' in data:
-            content = scrape_content(data['url'])
-            if not content:
-                return jsonify({'message': 'Failed to scrape content from URL'}), 400
-
-            qa_pairs = scrape_qa_pairs(data['url'])
-            source_url = data['url']
+            url = data['url']
+            soup = get_url_soup(url)
+            if not soup:
+                return jsonify({'message': 'Failed to reach website URL'}), 400
+            
+            content = scrape_content(url, soup=soup)
+            qa_pairs = scrape_qa_pairs(url, soup=soup)
+            source_url = url
         else:
             content = data['text']
             source_url = None
         
-        # Generate questions with structured Q&A first, then fallback to text-based generation
+        # Generate questions using Gemini AI first, fallback to rule-based if needed
         questions = []
-        if qa_pairs:
+        
+        # Try AI generation first
+        questions = generate_mcq_with_ai(content, topic, num_questions)
+        
+        # Fallback to local structured Q&A scraping if AI fails or isn't configured
+        if not questions and qa_pairs:
             questions = generate_mcq_from_qa_pairs(qa_pairs, topic, num_questions)
 
+        # Final fallback to local pattern-based generation
         if not questions:
             questions = generate_mcq_from_text(content, topic, num_questions)
         
@@ -744,7 +820,7 @@ def generate_questions(current_user):
         print(f"Error: {str(e)}")
         return jsonify({'message': 'Internal server error'}), 500
 
-@app.route('/api/admin/questions', methods=['GET', 'POST'])
+@app.route('/api/admin/questions', methods=['GET', 'POST', 'DELETE'])
 @token_required
 def manage_questions(current_user):
     """Get all questions or create a new question"""
@@ -807,6 +883,16 @@ def manage_questions(current_user):
                 'message': 'Question created successfully',
                 'question_id': question_id
             }), 201
+
+        elif request.method == 'DELETE':
+            # Delete all questions
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM questions')
+            conn.commit()
+            conn.close()
+            
+            return jsonify({'message': 'All questions deleted successfully'}), 200
     
     except Exception as e:
         print(f"Error: {str(e)}")
