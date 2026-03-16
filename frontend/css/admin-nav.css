@@ -1,59 +1,70 @@
 @import url('design-system.css');
 
 .admin-navbar {
-    background: #ffffff;
-    box-shadow: var(--shadow-sm);
-    padding: 0.75rem 0;
-    margin-bottom: 2rem;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     position: sticky;
     top: 0;
-    z-index: 100;
-    border-bottom: 1px solid #f1f5f9;
+    z-index: 1000;
+    padding: 0.8rem 0;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
 .admin-nav-content {
-    max-width: 1280px;
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 0 3rem;
+    padding: 0 2rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
 .admin-nav-brand {
-    color: var(--primary);
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     font-weight: 800;
+    color: #fff;
     text-decoration: none;
-    letter-spacing: -0.05em;
     display: flex;
     align-items: center;
+    gap: 0.75rem;
+    font-family: 'Playfair Display', serif;
+    letter-spacing: -0.025em;
+    background: linear-gradient(to right, #fff, #94a3b8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .admin-nav-links {
     display: flex;
-    gap: 0.5rem;
-    align-items: center;
+    gap: 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.35rem;
+    border-radius: var(--radius-full);
 }
 
 .admin-nav-link {
-    color: var(--text-muted);
+    color: #94a3b8;
     text-decoration: none;
     font-weight: 600;
-    padding: 0.6rem 1.2rem;
-    border-radius: var(--radius-md);
-    transition: var(--transition-base);
     font-size: 0.95rem;
+    padding: 0.6rem 1.4rem;
+    border-radius: var(--radius-full);
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 
 .admin-nav-link:hover {
-    color: var(--primary);
-    background: var(--primary-soft);
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-1px);
 }
 
 .admin-nav-link.active {
-    color: var(--primary);
-    background: var(--primary-soft);
+    background: var(--grad-primary);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(124, 58, 237, 0.4);
 }
 
 .admin-nav-right {
@@ -63,34 +74,39 @@
 }
 
 .admin-role-badge {
-    padding: 0.35rem 1rem;
-    background: #f1f5f9;
-    color: var(--text-muted);
+    background: rgba(0, 210, 255, 0.08);
+    color: var(--accent);
+    padding: 0.4rem 1.1rem;
     border-radius: var(--radius-full);
     font-size: 0.75rem;
-    font-weight: 700;
+    font-weight: 800;
     text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border: 1px solid rgba(0, 210, 255, 0.2);
+    box-shadow: 0 0 15px rgba(0, 210, 255, 0.1);
 }
 
 .btn-logout-nav {
-    padding: 0.6rem 1.2rem;
-    background-color: transparent;
-    color: var(--error);
-    border: 1px solid #fee2e2;
-    border-radius: var(--radius-md);
+    background: rgba(255, 71, 87, 0.08);
+    color: #ff4757;
+    border: 1px solid rgba(255, 71, 87, 0.2);
+    padding: 0.6rem 1.4rem;
+    border-radius: var(--radius-lg);
+    font-weight: 700;
     cursor: pointer;
+    transition: all 0.3s ease;
     font-size: 0.9rem;
-    font-weight: 600;
-    transition: var(--transition-base);
 }
 
 .btn-logout-nav:hover {
-    background-color: #fef2f2;
-    border-color: #fecaca;
+    background: #ff4757;
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 71, 87, 0.3);
 }
 
-@media (max-width: 768px) {
-    .admin-nav-content { padding: 0 1.5rem; }
-    .admin-nav-links { display: none; } /* Mobile menu implementation would go here */
+@media (max-width: 1024px) {
+    .admin-nav-links { display: none; }
 }
+
 

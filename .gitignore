@@ -15,3 +15,12 @@ backend/exam_system.db
 # OS files
 .DS_Store
 Thumbs.db
+
+# Environment variables
+.env
+**/.env
+
+# Local test/check scripts
+backend/check_*.py
+backend/test_*.py
+backend/migrate_*.py

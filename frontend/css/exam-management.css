@@ -1,267 +1,183 @@
 @import url('design-system.css');
 
 body {
-    background-color: var(--bg-main);
-    padding: 2.5rem;
+    background: radial-gradient(circle at top right, #0f172a 0%, #1e293b 100%);
     min-height: 100vh;
+    padding: 0;
+    color: var(--text-on-dark);
 }
 
 .container {
-    max-width: 1280px;
-    margin: 0 auto;
+    max-width: 1400px;
+    margin: 2rem auto;
+    padding: 0 2rem;
 }
 
 .header {
-    background: var(--bg-card);
-    padding: 2.5rem 3rem;
-    border-radius: var(--radius-xl);
-    margin-bottom: 2.5rem;
-    box-shadow: var(--shadow-md);
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    padding: 2.5rem 3.5rem;
+    border-radius: var(--radius-2xl);
+    margin-bottom: 3rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .header h1 {
-    color: var(--text-main);
-    font-size: 2rem;
-    font-weight: 700;
-    letter-spacing: -0.025em;
-}
-
-.header-actions {
-    display: flex;
-    gap: 1rem;
+    font-size: 2.25rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(to right, #fff, #94a3b8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .exams-section {
-    background: var(--bg-card);
-    padding: 3rem;
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-md);
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    background: rgba(255, 255, 255, 0.02);
+    padding: 3.5rem;
+    border-radius: var(--radius-2xl);
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .exams-section h2 {
-    color: var(--text-main);
-    margin-bottom: 2rem;
-    font-size: 1.5rem;
-    font-weight: 600;
+    margin-bottom: 2.5rem;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #fff;
+    opacity: 0.9;
 }
 
 .exams-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-    gap: 2rem;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 2.5rem;
 }
 
 .exam-card {
-    border: 1px solid #f1f5f9;
-    border-radius: var(--radius-lg);
-    padding: 2rem;
-    transition: var(--transition-base);
-    background: #ffffff;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-2xl);
+    padding: 2.5rem;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     display: flex;
     flex-direction: column;
 }
 
 .exam-card:hover {
-    box-shadow: var(--shadow-xl);
-    transform: translateY(-4px);
+    transform: translateY(-12px);
+    background: rgba(255, 255, 255, 0.06);
     border-color: var(--primary-light);
-}
-
-.exam-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: start;
-    margin-bottom: 1.5rem;
+    box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.5);
 }
 
 .exam-card-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-main);
-    margin-bottom: 0.25rem;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.5rem;
 }
 
 .exam-status {
-    padding: 0.35rem 1rem;
+    padding: 0.4rem 1.2rem;
     border-radius: var(--radius-full);
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: 0.8rem;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.025em;
+    letter-spacing: 0.05em;
 }
 
-.exam-status.active {
-    background: #ecfdf5;
-    color: #059669;
-}
-
-.exam-status.warning {
-    background: #fffbeb;
-    color: #d97706;
-}
-
-.exam-status.inactive {
-    background: #fef2f2;
-    color: #dc2626;
-}
+.exam-status.active { background: rgba(0, 210, 138, 0.1); color: #00d28a; border: 1px solid rgba(0, 210, 138, 0.2); }
+.exam-status.inactive { background: rgba(255, 71, 87, 0.1); color: #ff4757; border: 1px solid rgba(255, 71, 87, 0.2); }
 
 .exam-card-info {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    margin-bottom: 2rem;
-    color: var(--text-muted);
-    font-size: 0.9rem;
+    gap: 1rem;
+    margin: 2rem 0;
+    color: #94a3b8;
 }
 
 .exam-card-info div {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 1rem;
+    font-weight: 500;
 }
 
 .exam-card-actions {
     display: flex;
-    gap: 0.75rem;
+    gap: 1rem;
     margin-top: auto;
-    flex-wrap: wrap;
 }
 
-/* Modal Styles Refined */
+/* Premium Modal styling */
 .modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(15, 23, 42, 0.4);
-    backdrop-filter: blur(4px);
-    animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(15px);
 }
 
 .modal-content {
-    background-color: var(--bg-card);
-    margin: 4rem auto;
-    padding: 0;
-    border-radius: var(--radius-xl);
-    width: 90%;
-    max-width: 640px;
-    box-shadow: var(--shadow-xl);
-    animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.modal-content.large {
-    max-width: 1024px;
+    background: #1e293b;
+    border-radius: var(--radius-2xl);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 50px 100px rgba(0, 0, 0, 0.6);
 }
 
 .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 2rem 2.5rem;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 2.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .modal-header h2 {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-main);
-}
-
-.close {
-    color: var(--text-light);
-    font-size: 1.5rem;
-    cursor: pointer;
-    transition: var(--transition-fast);
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-full);
-}
-
-.close:hover {
-    background: #e2e8f0;
-    color: var(--text-main);
+    color: #fff;
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
 }
 
 .modal form {
-    padding: 2.5rem;
+    padding: 3rem;
+    background: transparent;
 }
 
-/* Questions Selection - Modern List */
-.questions-selection {
-    padding: 2rem 2.5rem;
-    max-height: 60vh;
-    overflow-y: auto;
+/* Custom form elements for dark UI */
+.form-group label { color: #94a3b8; }
+.form-group input, .form-group select, .form-group textarea {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius-lg);
 }
 
 .question-item {
-    border: 1px solid #f1f5f9;
-    border-radius: var(--radius-md);
-    padding: 1.25rem;
-    cursor: pointer;
-    transition: var(--transition-base);
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
 }
 
 .question-item:hover {
-    background: #f8fafc;
+    background: rgba(255, 255, 255, 0.06);
     border-color: var(--primary-light);
 }
 
 .question-item.selected {
-    background: var(--primary-soft);
+    background: rgba(124, 58, 237, 0.1);
     border-color: var(--primary);
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.2);
 }
 
-.question-text {
-    font-weight: 600;
-    color: var(--text-main);
-    margin-bottom: 0.35rem;
-}
+.question-text { color: #f8fafc; font-size: 1.1rem; }
+.question-meta { color: #64748b; margin-top: 0.5rem; }
 
-.question-meta {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-}
-
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: #f1f5f9;
-}
-
-::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-}
-
-@media (max-width: 768px) {
-    body { padding: 1rem; }
-    .header { padding: 1.5rem; flex-direction: column; align-items: stretch; gap: 1.5rem; }
-    .exams-section { padding: 1.5rem; }
+@media (max-width: 1024px) {
     .exams-list { grid-template-columns: 1fr; }
-}
+}
+
